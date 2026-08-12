@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { ArrowLeft, Search, X } from "lucide-react";
 import { CATEGORIES, COLOR_MAP } from "../data/constants.js";
 import { OrbitWatermark } from "./Common.jsx";
+import { EmptyState } from "./EmptyState.jsx";
 
 export function SearchOverlay({ communities, onOpen, onClose }) {
   const [q, setQ] = useState("");
@@ -32,17 +33,17 @@ export function SearchOverlay({ communities, onOpen, onClose }) {
       </div>
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-3">
         {!q && (
-          <p className="text-sm text-zinc-500 text-center py-10">Search by community name or category, like "Coding" or "Football".</p>
+          <EmptyState icon={Search} title="Search Orbit" subtitle={'Try a community name or category, like "Coding" or "Football".'} />
         )}
         {q && results.length === 0 && (
-          <p className="text-sm text-zinc-500 text-center py-10">No matches for "{q}".</p>
+          <EmptyState icon={Search} title={`No matches for "${q}"`} subtitle="Try a different name or category." />
         )}
         <div className="space-y-1">
-          {results.map((c) => {
+          {results.map((c, idx) => {
             const cat = CATEGORIES.find((x) => x.name === c.category);
             const cm = COLOR_MAP[cat.color];
             return (
-              <button key={c.id} onClick={() => { onOpen(c); onClose(); }} className="w-full flex items-center gap-3 py-2.5 text-left">
+              <button key={c.id} onClick={() => { onOpen(c); onClose(); }} className={`animate-fade-in-up stagger-${Math.min((idx % 8) + 1, 8)} w-full flex items-center gap-3 py-2.5 text-left active:scale-[0.99] transition-transform`}>
                 <div className={`${cm.tint} ${cm.text} w-11 h-11 rounded-full flex items-center justify-center shrink-0`}>
                   <cat.icon size={18} />
                 </div>

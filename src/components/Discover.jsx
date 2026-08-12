@@ -21,7 +21,7 @@ export function DiscoverScreen({ subTab, setSubTab, leaderboard, communities }) 
         {subTab === "events" && (
           <>
             <div className="px-4">
-              <p className="font-bold text-zinc-50 text-lg flex items-center gap-1.5"><Calendar size={17} className="text-blue-400" />Events nearby</p>
+              <p className="font-bold text-zinc-50 text-lg flex items-center gap-1.5"><Calendar size={17} className="text-violet-400" />Events nearby</p>
               <p className="text-xs text-zinc-500 mt-0.5">Events happening around you.</p>
             </div>
             <div className="px-4 pt-4 space-y-2.5">
@@ -44,7 +44,7 @@ export function DiscoverScreen({ subTab, setSubTab, leaderboard, communities }) 
         {subTab === "orbit" && (
           <>
             <div className="px-4">
-              <p className="font-bold text-zinc-50 text-lg flex items-center gap-1.5"><OrbitIcon size={17} className="text-blue-400" />Community Orbit</p>
+              <p className="font-bold text-zinc-50 text-lg flex items-center gap-1.5"><OrbitIcon size={17} className="text-violet-400" />Community Orbit</p>
               <p className="text-xs text-zinc-500 mt-0.5">Live rankings based on activity, not just popularity.</p>
             </div>
             <div className="pt-4">

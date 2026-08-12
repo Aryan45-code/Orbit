@@ -1,21 +1,22 @@
 import { useState, useMemo } from "react";
 import {
-  BadgeCheck, Settings, LogOut, LogIn, ShieldCheck, Grid3x3, LayoutGrid,
+  BadgeCheck, Settings, LogOut, LogIn, ShieldCheck, Grid3x3, Users2, Camera, Plus,
 } from "lucide-react";
 import { CATEGORIES, COLOR_MAP, MOCK_SIMILAR_PEOPLE } from "../data/constants.js";
 import { useClickOutside } from "../utils/hooks.js";
 import { OrbitWatermark, Avatar } from "./Common.jsx";
-import { OrbitHero } from "./Home.jsx";
+import { nextId } from "../utils/helpers.js";
+import { EmptyState } from "./EmptyState.jsx";
 
-export function ProfileScreen({ user, joinedCommunities, onEditName, onVerifyGuest, onLogout, orbitScore, rankInfo, onViewLeaderboard }) {
+export function ProfileScreen({ user, joinedCommunities, onEditName, onVerifyGuest, onLogout }) {
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(user.name);
   const [bio, setBio] = useState("");
   const [draftBio, setDraftBio] = useState("");
-  const [gridTab, setGridTab] = useState("joined");
+  const [gridTab, setGridTab] = useState("posts");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [myPosts, setMyPosts] = useState([]);
   const createdCommunities = joinedCommunities.filter((c) => c.creator === "You");
-  const shown = gridTab === "joined" ? joinedCommunities : createdCommunities;
   const interests = user.interests || [];
   const similarPeople = useMemo(() => (
     MOCK_SIMILAR_PEOPLE
@@ -31,7 +32,7 @@ export function ProfileScreen({ user, joinedCommunities, onEditName, onVerifyGue
       <div className="flex items-center justify-between px-5 pt-5">
         <div className="flex items-center gap-1.5">
           <p className="font-bold text-zinc-50 text-base">{user.name}</p>
-          {user.verified && <BadgeCheck size={15} className="text-blue-400" />}
+          {user.verified && <BadgeCheck size={15} className="text-violet-400" />}
         </div>
         <div ref={settingsMenuRef} className="relative">
           <button onClick={() => setMenuOpen((v) => !v)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-900">
@@ -43,14 +44,13 @@ export function ProfileScreen({ user, joinedCommunities, onEditName, onVerifyGue
               {user.verified ? (
                 <button onClick={() => { setMenuOpen(false); onLogout(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-rose-400 hover:bg-zinc-800"><LogOut size={15} />Log out</button>
               ) : (
-                <button onClick={() => { setMenuOpen(false); onLogout(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-blue-400 hover:bg-zinc-800"><LogIn size={15} />Log in</button>
+                <button onClick={() => { setMenuOpen(false); onLogout(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-violet-400 hover:bg-zinc-800"><LogIn size={15} />Log in</button>
               )}
             </div>
           )}
         </div>
       </div>
-      <OrbitHero score={orbitScore} rankInfo={rankInfo} onViewLeaderboard={onViewLeaderboard} />
-      <div className="flex items-center gap-6 px-5 pt-4">
+      <div className="flex items-center gap-6 px-5 pt-6">
         <Avatar label={user.name[0]} size={76} ring={user.verified} />
         <div className="flex-1 grid grid-cols-3 gap-1 text-center">
           <div>
@@ -70,9 +70,9 @@ export function ProfileScreen({ user, joinedCommunities, onEditName, onVerifyGue
       <div className="px-5 pt-3.5">
         {editing ? (
           <div className="space-y-2 mb-3">
-            <input value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Your name" className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
-            <textarea value={draftBio} onChange={(e) => setDraftBio(e.target.value)} placeholder="Short bio — what are you looking for nearby?" rows={2} className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
-            <button onClick={() => { onEditName(draftName); setBio(draftBio); setEditing(false); }} className="text-xs text-blue-400 font-medium">Save</button>
+            <input value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Your name" className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500" />
+            <textarea value={draftBio} onChange={(e) => setDraftBio(e.target.value)} placeholder="Short bio — what are you looking for nearby?" rows={2} className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500" />
+            <button onClick={() => { onEditName(draftName); setBio(draftBio); setEditing(false); }} className="text-xs text-violet-400 font-medium">Save</button>
           </div>
         ) : (
           <>
@@ -108,35 +108,71 @@ export function ProfileScreen({ user, joinedCommunities, onEditName, onVerifyGue
               <div key={p.id} className="w-28 shrink-0 bg-zinc-900 border border-zinc-800 rounded-2xl p-3 text-center">
                 <Avatar label={p.name[0]} size={40} />
                 <p className="text-xs font-medium text-zinc-200 mt-2 truncate">{p.name}</p>
-                <p className="text-[10px] text-blue-400 mt-0.5">{p.overlap.length} shared {p.overlap.length === 1 ? "interest" : "interests"}</p>
+                <p className="text-[10px] text-violet-400 mt-0.5">{p.overlap.length} shared {p.overlap.length === 1 ? "interest" : "interests"}</p>
               </div>
             ))}
           </div>
         </div>
       )}
       <div className="flex border-t border-zinc-900 mt-5">
-        <button onClick={() => setGridTab("joined")} className={`flex-1 flex items-center justify-center py-3 border-b-2 ${gridTab === "joined" ? "border-zinc-50 text-zinc-50" : "border-transparent text-zinc-600"}`}>
-          <Grid3x3 size={17} />
+        <button onClick={() => setGridTab("posts")} className={`flex-1 flex items-center justify-center gap-1.5 py-3 border-b-2 text-xs font-medium ${gridTab === "posts" ? "border-zinc-50 text-zinc-50" : "border-transparent text-zinc-600"}`}>
+          <Grid3x3 size={15} />Posts
         </button>
-        <button onClick={() => setGridTab("created")} className={`flex-1 flex items-center justify-center py-3 border-b-2 ${gridTab === "created" ? "border-zinc-50 text-zinc-50" : "border-transparent text-zinc-600"}`}>
-          <LayoutGrid size={17} />
+        <button onClick={() => setGridTab("communities")} className={`flex-1 flex items-center justify-center gap-1.5 py-3 border-b-2 text-xs font-medium ${gridTab === "communities" ? "border-zinc-50 text-zinc-50" : "border-transparent text-zinc-600"}`}>
+          <Users2 size={15} />Communities
         </button>
       </div>
-      {shown.length === 0 ? (
-        <p className="text-sm text-zinc-500 text-center py-10">{gridTab === "joined" ? "You haven't joined any communities yet." : "You haven't created any communities yet."}</p>
-      ) : (
-        <div className="grid grid-cols-3 gap-0.5 mt-0.5">
-          {shown.map((c) => {
-            const cat = CATEGORIES.find((x) => x.name === c.category);
-            const cm = COLOR_MAP[cat.color];
-            return (
-              <div key={c.id} className={`aspect-square p-2 flex flex-col justify-between bg-gradient-to-br ${cm.grad}`}>
-                <cat.icon size={15} className="text-white/90" />
-                <p className="text-[10px] font-semibold text-white leading-tight line-clamp-2">{c.name}</p>
+      {gridTab === "posts" && (
+        myPosts.length === 0 ? (
+          <div className="pt-2">
+            <EmptyState
+              icon={Camera}
+              title="Show people who you are"
+              subtitle="Post a photo or video to your profile — this is what other students see first."
+              action={
+                <button
+                  onClick={() => setMyPosts((p) => [{ id: nextId() }, ...p])}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-white bg-violet-500 px-4 py-2 rounded-xl active:scale-[0.97] transition-transform"
+                >
+                  <Plus size={13} />Add your first post
+                </button>
+              }
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-0.5 mt-0.5">
+            <button
+              onClick={() => setMyPosts((p) => [{ id: nextId() }, ...p])}
+              className="aspect-square flex flex-col items-center justify-center gap-1 bg-zinc-900 border border-dashed border-zinc-800 text-zinc-500 animate-pop-in"
+            >
+              <Plus size={18} />
+              <span className="text-[10px]">Add</span>
+            </button>
+            {myPosts.map((p, i) => (
+              <div key={p.id} className={`animate-pop-in stagger-${Math.min((i % 8) + 1, 8)} aspect-square bg-zinc-900 border border-zinc-800 flex items-center justify-center`}>
+                <Camera size={18} className="text-zinc-700" />
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )
+      )}
+      {gridTab === "communities" && (
+        joinedCommunities.length === 0 ? (
+          <p className="text-sm text-zinc-500 text-center py-10">You haven't joined any communities or clubs yet.</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-0.5 mt-0.5">
+            {joinedCommunities.map((c) => {
+              const cat = CATEGORIES.find((x) => x.name === c.category);
+              const cm = COLOR_MAP[cat.color];
+              return (
+                <div key={c.id} className={`aspect-square p-2 flex flex-col justify-between bg-gradient-to-br ${cm.grad}`}>
+                  <cat.icon size={15} className="text-white/90" />
+                  <p className="text-[10px] font-semibold text-white leading-tight line-clamp-2">{c.name}</p>
+                </div>
+              );
+            })}
+          </div>
+        )
       )}
       </div>
     </div>

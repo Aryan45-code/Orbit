@@ -60,6 +60,33 @@ export const timeAgo = (mins) => {
   return `${Math.floor(h / 24)}d ago`;
 };
 
+// Turns a display name into a unique-ish @handle for community/club pages
+// and their QR codes — e.g. "DSA Grinders — 6AM Batch" -> "dsa-grinders-6am-batch".
+export function handleFor(name, id) {
+  const slug = name
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `${slug}-${id}`;
+}
+
+// Locali-Tea: every post self-destructs 48h after posting, comments included.
+export const TEA_LIFESPAN_MS = 48 * 60 * 60 * 1000;
+
+export function isTeaExpired(createdAt) {
+  return Date.now() - createdAt >= TEA_LIFESPAN_MS;
+}
+
+export function teaTimeLeft(createdAt) {
+  const msLeft = TEA_LIFESPAN_MS - (Date.now() - createdAt);
+  if (msLeft <= 0) return "Expired";
+  const h = Math.floor(msLeft / (60 * 60 * 1000));
+  if (h >= 1) return `${h}h left`;
+  const m = Math.max(1, Math.floor(msLeft / (60 * 1000)));
+  return `${m}m left`;
+}
+
 export function genMembers(c) {
   const total = Math.max(1, c.members);
   const creatorName = c.creator === "You" ? "You" : NAME_POOL[c.id % NAME_POOL.length];

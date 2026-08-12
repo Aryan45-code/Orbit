@@ -28,12 +28,12 @@ export const CATEGORIES = [
 // Everything else stays low-opacity tints on a near-black base — color highlights
 // specific things (live status, category, brand), it never becomes the chrome.
 export const COLOR_MAP = {
-  indigo: { tint: "bg-indigo-500/10", text: "text-indigo-300", ringc: "ring-indigo-400/30", grad: "from-indigo-500 to-blue-600" },
+  indigo: { tint: "bg-indigo-500/10", text: "text-indigo-300", ringc: "ring-indigo-400/30", grad: "from-indigo-500 to-violet-600" },
   rose: { tint: "bg-rose-500/10", text: "text-rose-300", ringc: "ring-rose-400/30", grad: "from-rose-500 to-pink-600" },
   emerald: { tint: "bg-emerald-500/10", text: "text-emerald-300", ringc: "ring-emerald-400/30", grad: "from-emerald-500 to-teal-600" },
   violet: { tint: "bg-violet-500/10", text: "text-violet-300", ringc: "ring-violet-400/30", grad: "from-violet-500 to-purple-600" },
   amber: { tint: "bg-amber-500/10", text: "text-amber-300", ringc: "ring-amber-400/30", grad: "from-amber-500 to-orange-600" },
-  sky: { tint: "bg-sky-500/10", text: "text-sky-300", ringc: "ring-sky-400/30", grad: "from-sky-500 to-blue-600" },
+  sky: { tint: "bg-sky-500/10", text: "text-sky-300", ringc: "ring-sky-400/30", grad: "from-sky-500 to-violet-600" },
   fuchsia: { tint: "bg-fuchsia-500/10", text: "text-fuchsia-300", ringc: "ring-fuchsia-400/30", grad: "from-fuchsia-500 to-pink-600" },
   orange: { tint: "bg-orange-500/10", text: "text-orange-300", ringc: "ring-orange-400/30", grad: "from-orange-500 to-red-600" },
   pink: { tint: "bg-pink-500/10", text: "text-pink-300", ringc: "ring-pink-400/30", grad: "from-pink-500 to-rose-600" },
@@ -83,14 +83,31 @@ export const SEED_COMMUNITIES = [
   { name: "Foster & Rescue Network", category: "Pets & Animals", tags: ["Pets & Animals", "Networking & Social"], desc: "Connecting fosters, adopters, and vet recommendations nearby.", dx: -0.5, dy: -0.8, members: 12, lastActive: 50 },
   { name: "Weekend Cleanup Crew", category: "Volunteering", tags: ["Volunteering"], desc: "Park and beach cleanups, gloves and bags provided.", dx: 0.9, dy: -0.3, members: 22, lastActive: 16 },
   { name: "Tutoring for Local Kids", category: "Volunteering", tags: ["Volunteering", "Study"], desc: "A couple hours a week helping neighborhood kids with homework.", dx: -0.3, dy: 0.5, members: 16, lastActive: 40 },
-].map((c) => ({ ...c, id: nextId(), creator: "Seed" }));
+].map((c) => ({ ...c, id: nextId(), creator: "Seed", official: false }));
+
+// Official college clubs — institutional, not student-started. Kept as a
+// separate array from SEED_COMMUNITIES so Explore can list them under their
+// own "Clubs" sub-tab, but they share the same shape (name/category/desc/
+// members) so CommunityDetail can render either without a fork in the code.
+export const CLUBS = [
+  { name: "Manipal Coding Club", category: "Coding & Projects", tags: ["Coding & Projects"], desc: "Official competitive programming and dev club — weekly contests, workshops, and hiring drives.", members: 340, lastActive: 3 },
+  { name: "Robotics & Automation Society", category: "Coding & Projects", tags: ["Coding & Projects"], desc: "Builds bots for inter-college competitions; open to all years.", members: 145, lastActive: 20 },
+  { name: "Manipal Sports Council", category: "Sports", tags: ["Sports"], desc: "Governs all inter-branch and inter-college sporting fixtures on campus.", members: 520, lastActive: 5 },
+  { name: "Fitness & Wellness Club", category: "Fitness", tags: ["Fitness"], desc: "Official gym batches, nutrition talks, and campus fitness challenges.", members: 210, lastActive: 12 },
+  { name: "E-Cell Manipal Jaipur", category: "Networking & Social", tags: ["Networking & Social", "Coding & Projects"], desc: "Entrepreneurship cell — pitch nights, founder talks, incubation support.", members: 275, lastActive: 8 },
+  { name: "Music Society", category: "Music", tags: ["Music"], desc: "Official band, auditions every semester, performs at all campus fests.", members: 98, lastActive: 15 },
+  { name: "Dramatics & Theatre Club", category: "Art & Design", tags: ["Art & Design"], desc: "Stage productions, street plays, and annual theatre fest.", members: 87, lastActive: 30 },
+  { name: "Photography Club", category: "Photography", tags: ["Photography"], desc: "Official campus photography — covers every fest, sport day, and convocation.", members: 156, lastActive: 6 },
+  { name: "Literary & Debating Society", category: "Books & Reading", tags: ["Books & Reading", "Networking & Social"], desc: "Debates, MUNs, and creative writing circles.", members: 112, lastActive: 25 },
+  { name: "NSS Manipal Jaipur", category: "Volunteering", tags: ["Volunteering"], desc: "National Service Scheme unit — official volunteering and outreach drives.", members: 260, lastActive: 18 },
+].map((c) => ({ ...c, id: nextId(), creator: "College", official: true }));
 
 export const MOCK_EVENTS = [
-  { id: "e1", title: "Inter-branch Football Final", when: "Tomorrow, 5:00 PM", where: "Back Ground", dx: 1.0, dy: 0.4 },
-  { id: "e2", title: "Open Mic Night", when: "Fri, 8:00 PM", where: "Amphitheatre", dx: -0.2, dy: -0.3 },
-  { id: "e3", title: "Hackathon Kickoff", when: "Sat, 10:00 AM", where: "CS Block Lab 2", dx: 0.5, dy: 0.1 },
-  { id: "e4", title: "Career Fair — Cyber & Cloud", when: "Mon, 11:00 AM", where: "Convention Centre", dx: -0.9, dy: 0.6 },
-];
+  { title: "Inter-branch Football Final", when: "Tomorrow, 5:00 PM", where: "Back Ground", category: "Sports", tags: ["Sports"], capacity: 200, desc: "The final showdown of this semester's inter-branch league. Come cheer or come play." },
+  { title: "Open Mic Night", when: "Fri, 8:00 PM", where: "Amphitheatre", category: "Music", tags: ["Music", "Art & Design"], capacity: 150, desc: "Sign up to perform or just show up and listen — poetry, music, comedy, all welcome." },
+  { title: "Hackathon Kickoff", when: "Sat, 10:00 AM", where: "CS Block Lab 2", category: "Coding & Projects", tags: ["Coding & Projects"], capacity: 120, desc: "24-hour build sprint, teams of up to 4, prizes for top 3 projects." },
+  { title: "Career Fair — Cyber & Cloud", when: "Mon, 11:00 AM", where: "Convention Centre", category: "Coding & Projects", tags: ["Coding & Projects", "Networking & Social"], capacity: 400, desc: "Recruiters from cybersecurity and cloud companies — bring your resume." },
+].map((e) => ({ ...e, id: nextId() }));
 
 export const MOCK_INCOMING_REQUESTS = [
   { id: "r1", name: "Ananya", context: "wants to chat about Open Source Saturdays" },
@@ -132,6 +149,23 @@ export const MOCK_SIMILAR_PEOPLE = [
   { id: "s2", name: "Yashwin", shared: ["Sports", "Fitness"] },
   { id: "s3", name: "Naina", shared: ["Travel", "Networking & Social"] },
 ];
+
+// Locali-Tea: anonymous, ephemeral (48h) posts + discussion. createdAt is
+// computed relative to "now" so the seed data always looks fresh regardless
+// of when the app is opened.
+export const MOCK_TEA = [
+  { text: "Heard the CS block canteen is getting a new vendor next month — apparently way better than the current one.", hoursAgo: 2, trueCount: 14, capCount: 2, comments: [
+    { who: "Anonymous", text: "Please let this be true, current food is rough", time: "1h ago" },
+    { who: "Anonymous", text: "Can confirm, saw the renovation notice on the board", time: "40m ago" },
+  ] },
+  { text: "A certain professor in the E&C dept gives bonus marks if you catch his coding mistakes on the board 👀", hoursAgo: 6, trueCount: 31, capCount: 5, comments: [
+    { who: "Anonymous", text: "Tried this last week, got +2 lol", time: "3h ago" },
+  ] },
+  { text: "Rumor is the fest dates got pushed by a week because of exam clashes.", hoursAgo: 20, trueCount: 9, capCount: 11, comments: [] },
+  { text: "Someone said the gym is finally getting new equipment after 2 years of complaints.", hoursAgo: 30, trueCount: 22, capCount: 3, comments: [
+    { who: "Anonymous", text: "Saw boxes being unloaded near the sports complex yesterday", time: "10h ago" },
+  ] },
+].map((t) => ({ ...t, id: nextId(), createdAt: Date.now() - t.hoursAgo * 60 * 60 * 1000 }));
 
 export const REPORT_REASONS = ["Spam or scam", "Harassment or bullying", "Inappropriate content", "Fake community or impersonation", "Something else"];
 

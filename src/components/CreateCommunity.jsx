@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, ChevronLeft, MapPin, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ShieldCheck } from "lucide-react";
 import { CATEGORIES, COLOR_MAP } from "../data/constants.js";
 import { OrbitWatermark } from "./Common.jsx";
 
@@ -21,13 +21,13 @@ export function CreateCommunity({ onCreate, onClose, verified, onBlocked, onVeri
             <ShieldCheck size={30} className="text-zinc-700 mb-3" />
             <p className="font-semibold text-zinc-200">Verify your account to create a community</p>
             <p className="text-sm text-zinc-500 mt-1.5">Only verified members can start new communities on Orbit.</p>
-            <button onClick={onVerifyNow} className="mt-4 text-sm text-blue-400 font-medium">Verify now</button>
+            <button onClick={onVerifyNow} className="mt-4 text-sm text-violet-400 font-medium">Verify now</button>
           </div>
         ) : (
           <div className="px-5 pt-5 pb-8">
             <div className="flex items-center gap-2 mb-5">
               {[1, 2, 3].map((s) => (
-                <div key={s} className={`h-1.5 flex-1 rounded-full ${s <= step ? "bg-blue-500" : "bg-zinc-800"}`} />
+                <div key={s} className={`h-1.5 flex-1 rounded-full ${s <= step ? "bg-violet-500" : "bg-zinc-800"}`} />
               ))}
             </div>
             {step === 1 && (
@@ -40,14 +40,14 @@ export function CreateCommunity({ onCreate, onClose, verified, onBlocked, onVeri
                     const Icon = cat.icon;
                     const selected = category === cat.name;
                     return (
-                      <button key={cat.name} onClick={() => setCategory(cat.name)} className={`rounded-2xl p-3.5 text-left border ${selected ? "border-blue-500 ring-1 ring-blue-500/30 bg-blue-500/5" : "border-zinc-800 bg-zinc-900"}`}>
+                      <button key={cat.name} onClick={() => setCategory(cat.name)} className={`rounded-2xl p-3.5 text-left border ${selected ? "border-violet-500 ring-1 ring-violet-500/30 bg-violet-500/5" : "border-zinc-800 bg-zinc-900"}`}>
                         <div className={`${cm.tint} ${cm.text} w-9 h-9 rounded-xl flex items-center justify-center mb-2`}><Icon size={18} /></div>
                         <p className="text-sm font-medium text-zinc-200 leading-snug">{cat.name}</p>
                       </button>
                     );
                   })}
                 </div>
-                <button disabled={!category} onClick={() => setStep(2)} className="w-full mt-5 py-2.5 rounded-xl bg-blue-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 text-sm font-semibold">Continue</button>
+                <button disabled={!category} onClick={() => setStep(2)} className="w-full mt-5 py-2.5 rounded-xl bg-violet-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 text-sm font-semibold">Continue</button>
               </div>
             )}
             {step === 2 && (
@@ -55,24 +55,23 @@ export function CreateCommunity({ onCreate, onClose, verified, onBlocked, onVeri
                 <button onClick={() => setStep(1)} className="text-xs text-zinc-500 flex items-center gap-1 mb-3"><ChevronLeft size={14} />Back</button>
                 <p className="font-bold text-zinc-50 text-lg mb-1">Name it</p>
                 <p className="text-sm text-zinc-500 mb-4">Freeform — make it sound like something people would actually tap on.</p>
-                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sunday Football League" className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-xl px-3.5 py-2.5 text-sm mb-3 outline-none focus:border-blue-500" />
-                <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Short description (optional)" rows={3} className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-500" />
-                <button disabled={!name.trim()} onClick={() => setStep(3)} className="w-full mt-5 py-2.5 rounded-xl bg-blue-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 text-sm font-semibold">Continue</button>
+                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sunday Football League" className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-xl px-3.5 py-2.5 text-sm mb-3 outline-none focus:border-violet-500" />
+                <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Short description (optional)" rows={3} className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-violet-500" />
+                <button disabled={!name.trim()} onClick={() => setStep(3)} className="w-full mt-5 py-2.5 rounded-xl bg-violet-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 text-sm font-semibold">Continue</button>
               </div>
             )}
             {step === 3 && (
               <div>
                 <button onClick={() => setStep(2)} className="text-xs text-zinc-500 flex items-center gap-1 mb-3"><ChevronLeft size={14} />Back</button>
                 <p className="font-bold text-zinc-50 text-lg mb-1">Confirm</p>
-                <p className="text-sm text-zinc-500 mb-4">Your current location becomes this community's zone centre.</p>
+                <p className="text-sm text-zinc-500 mb-4">Your community gets a unique handle and QR code once created.</p>
                 <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-2">
                   <div className="flex justify-between text-sm"><span className="text-zinc-500">Category</span><span className="font-medium text-zinc-200">{category}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-zinc-500">Name</span><span className="font-medium text-zinc-200">{name}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-zinc-500">Zone</span><span className="font-medium text-zinc-200 flex items-center gap-1"><MapPin size={12} />Your location</span></div>
                 </div>
                 <button
-                  onClick={() => onCreate({ name, category, desc, dx: 0, dy: 0 })}
-                  className="w-full mt-5 py-2.5 rounded-xl bg-blue-500 text-white text-sm font-semibold"
+                  onClick={() => onCreate({ name, category, desc })}
+                  className="w-full mt-5 py-2.5 rounded-xl bg-violet-500 text-white text-sm font-semibold"
                 >
                   Create community
                 </button>

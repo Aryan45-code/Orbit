@@ -1,5 +1,7 @@
 # Orbit — project scaffold
 
+> **Active roadmap: see `SPEC.md`.** The product pivoted to a Manipal Jaipur-only campus app (clubs, events, no geolocation) — `SPEC.md` is the current source of truth and supersedes parts of the "what's still a prototype" list below. Backend plan: `BACKEND_ARCHITECTURE.docx`.
+
 This is your original single-file prototype split into a proper Vite + React + Tailwind project, ready to hand to Claude Code (or any local dev setup) for real feature work.
 
 ## What changed from the prototype
@@ -28,6 +30,25 @@ src/
     Onboarding.jsx
     ReportModal.jsx
 ```
+
+## Design system
+
+The app has a small motion/visual system layered on top of the original dark-tint palette, defined in `tailwind.config.js` (keyframes/animations) and `src/index.css` (utility classes):
+
+- `animate-fade-in-up`, `animate-fade-in`, `animate-pop-in` — entrance motion, combine with `.stagger-1` through `.stagger-8` to cascade list items in
+- `animate-float-slow` / `animate-float-slow-2` — slow-drifting blobs, used by `AuroraBackground` (`Common.jsx`)
+- `.glass` — frosted-glass surface (backdrop blur), used for the onboarding method switcher and the toast
+- `.skeleton-shimmer` + `animate-shimmer` — loading placeholder shine, used by `Skeleton.jsx`
+
+Shared components to reuse everywhere:
+
+- `Skeleton.jsx` — `SkeletonCard`, `SkeletonStory`, `SkeletonFeed`, `SkeletonLine`, `SkeletonCircle` for loading states
+- `EmptyState.jsx` — `EmptyState` (icon + title + subtitle + optional action), `ErrorBanner` (retry button), `OfflineBanner`
+- `Common.jsx` — `AuroraBackground` (hero-screen glow), `OrbitWatermark` (subtle texture for regular screens)
+
+**Applied so far:** Onboarding (full redesign — hero typography, aurora background, staggered entrances), Home feed (card depth/hover, staggered list, skeleton loading on mount, empty state), the app shell (full-bleed on mobile, centered card with shadow on desktop, safe-area padding), Search (empty states, staggered results), bottom nav + toast (micro-interactions).
+
+**Still needs the same treatment:** Chat, Profile, Discover, Community detail, Create Community, Nearby. They still work fine functionally — they just don't yet have the loading skeletons / empty states / stagger-in polish applied. Use the components above rather than inventing new patterns, so the app feels consistent.
 
 ## Running it
 
