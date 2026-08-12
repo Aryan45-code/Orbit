@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Mail, Check, ShieldCheck, Clock, ChevronLeft, ArrowRight, GraduationCap } from "lucide-react";
+import { Check, ShieldCheck, Clock, ChevronLeft, ArrowRight, GraduationCap } from "lucide-react";
 import { CATEGORIES, COLOR_MAP, ONBOARDING_STEPS } from "../data/constants.js";
 import { Logo, AuroraBackground, OrbitEmblem } from "./Common.jsx";
 

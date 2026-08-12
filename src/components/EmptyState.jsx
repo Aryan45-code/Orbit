@@ -16,25 +16,3 @@ export function EmptyState({ icon: Icon, title, subtitle, action, tone = "neutra
     </div>
   );
 }
-
-export function ErrorBanner({ message = "Something went wrong.", onRetry }) {
-  return (
-    <div className="animate-fade-in-up mx-4 my-2 flex items-center justify-between gap-3 rounded-xl border border-rose-500/20 bg-rose-500/5 px-3.5 py-2.5">
-      <p className="text-xs text-rose-300">{message}</p>
-      {onRetry && (
-        <button onClick={onRetry} className="shrink-0 text-xs font-semibold text-rose-300 underline underline-offset-2">
-          Retry
-        </button>
-      )}
-    </div>
-  );
-}
-
-export function OfflineBanner() {
-  return (
-    <div className="flex items-center justify-center gap-1.5 bg-zinc-900 border-b border-zinc-800 px-4 py-1.5">
-      <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
-      <p className="text-[11px] text-zinc-500">You're offline — showing saved data</p>
-    </div>
-  );
-}

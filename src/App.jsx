@@ -98,7 +98,8 @@ export default function App() {
     showToast("Deleted");
   };
 
-  const handleReportSubmit = () => {
+  const handleReportSubmit = (reason) => {
+    console.log("Report submitted", { target: reportTarget, reason });
     setReportTarget(null);
     setSelectedCommunity(null);
     showToast("Report submitted for review");

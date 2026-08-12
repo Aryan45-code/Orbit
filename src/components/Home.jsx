@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Plus, Users, Flame, TrendingUp, Megaphone, Orbit as OrbitIcon, Crown, Compass } from "lucide-react";
+import { Plus, Users, Flame, TrendingUp, Megaphone, Compass } from "lucide-react";
 import { CATEGORIES, COLOR_MAP, MOCK_ADS } from "../data/constants.js";
-import { interestMatchCount, baseSparks, communityTrendScore, orbitTitle } from "../utils/helpers.js";
+import { interestMatchCount, baseSparks, communityTrendScore } from "../utils/helpers.js";
 import { OrbitWatermark } from "./Common.jsx";
 import { SkeletonFeed, SkeletonStory } from "./Skeleton.jsx";
 import { EmptyState } from "./EmptyState.jsx";
@@ -62,99 +62,6 @@ export function AdCard({ ad }) {
         <p className="text-xs text-zinc-500 truncate">{ad.subtitle}</p>
       </div>
       <span className={`${cm.text} text-[11px] font-semibold shrink-0`}>{ad.cta}</span>
-    </div>
-  );
-}
-
-export function OrbitHero({ score, rankInfo, onViewLeaderboard }) {
-  const title = orbitTitle(score);
-  return (
-    <div className="mx-5 mt-4 rounded-2xl border border-zinc-800 bg-gradient-to-br from-violet-500/10 via-zinc-900 to-emerald-500/5 p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-xl bg-violet-500/15 text-violet-300 flex items-center justify-center shrink-0">
-            <OrbitIcon size={18} />
-          </div>
-          <div>
-            <p className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wide">Orbit Score</p>
-            <p className="text-xl font-bold text-zinc-50 mono leading-tight">{score}</p>
-          </div>
-        </div>
-        <div className="text-right">
-          <p className="text-xs font-semibold text-violet-300">{title}</p>
-          {rankInfo && (
-            <p className="text-[11px] text-zinc-500 mt-0.5">Rank <span className="mono text-zinc-300">#{rankInfo.rank}</span> of {rankInfo.total}</p>
-          )}
-        </div>
-      </div>
-      <button onClick={onViewLeaderboard} className="w-full mt-3 pt-2.5 border-t border-zinc-800 text-xs font-medium text-violet-400">
-        See community leaderboard →
-      </button>
-    </div>
-  );
-}
-
-export function OrbitLeaderboard({ leaderboard, communities }) {
-  const [seg, setSeg] = useState("people");
-  const trendingCommunities = useMemo(() => (
-    [...communities].sort((a, b) => communityTrendScore(b) - communityTrendScore(a)).slice(0, 8)
-  ), [communities]);
-  return (
-    <div>
-      <div className="flex gap-1.5 px-4 pb-3">
-        <button onClick={() => setSeg("people")} className={`flex-1 text-xs font-medium py-2 rounded-xl border ${seg === "people" ? "bg-zinc-50 text-zinc-900 border-zinc-50" : "bg-zinc-900 text-zinc-400 border-zinc-800"}`}>People</button>
-        <button onClick={() => setSeg("communities")} className={`flex-1 text-xs font-medium py-2 rounded-xl border ${seg === "communities" ? "bg-zinc-50 text-zinc-900 border-zinc-50" : "bg-zinc-900 text-zinc-400 border-zinc-800"}`}>Communities</button>
-      </div>
-      {seg === "people" && (
-        <div className="px-4 space-y-1.5">
-          {leaderboard.map((p) => (
-            <div key={p.name} className={`flex items-center gap-3 p-2.5 rounded-xl ${p.isYou ? "bg-violet-500/10 border border-violet-500/30" : ""}`}>
-              <span className="w-6 text-center shrink-0">
-                {p.rank <= 3 ? <Crown size={14} className="text-amber-400 mx-auto" /> : <span className="text-xs font-bold text-zinc-500 mono">{p.rank}</span>}
-              </span>
-              <AvatarInline label={p.name[0]} />
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium truncate ${p.isYou ? "text-violet-300" : "text-zinc-200"}`}>{p.name}{p.isYou ? " (You)" : ""}</p>
-                <p className="text-[11px] text-zinc-500">{orbitTitle(p.score)}</p>
-              </div>
-              <span className="text-sm font-bold text-zinc-100 mono shrink-0">{p.score}</span>
-            </div>
-          ))}
-        </div>
-      )}
-      {seg === "communities" && (
-        <div className="px-4 space-y-1.5">
-          {trendingCommunities.map((c, i) => {
-            const cat = CATEGORIES.find((x) => x.name === c.category);
-            const cm = COLOR_MAP[cat.color];
-            return (
-              <div key={c.id} className="flex items-center gap-3 p-2.5 rounded-xl">
-                <span className="w-6 text-center shrink-0">
-                  {i < 3 ? <Crown size={14} className="text-amber-400 mx-auto" /> : <span className="text-xs font-bold text-zinc-500 mono">{i + 1}</span>}
-                </span>
-                <div className={`${cm.tint} ${cm.text} w-9 h-9 rounded-xl flex items-center justify-center shrink-0`}>
-                  <cat.icon size={15} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-zinc-200 truncate">{c.name}</p>
-                  <p className="text-[11px] text-zinc-500">{c.category} · {c.members} members</p>
-                </div>
-                {i === 0 && <TrendingUp size={15} className="text-emerald-400 shrink-0" />}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AvatarInline({ label, size = 34, color = "indigo" }) {
-  const c = COLOR_MAP[color] || COLOR_MAP.indigo;
-  return (
-    <div className={`${c.tint} ${c.text} rounded-full flex items-center justify-center font-semibold shrink-0`}
-      style={{ width: size, height: size, fontSize: size * 0.38 }}>
-      {label}
     </div>
   );
 }
