@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { ArrowLeft, Coffee, Flame, Snowflake, MessageCircle, Send, Flag, Clock } from "lucide-react";
 import { teaTimeLeft, isTeaExpired } from "../utils/helpers.js";
-import { OrbitWatermark } from "./Common.jsx";
 import { EmptyState } from "./EmptyState.jsx";
 
 // Locali-Tea: anonymous, campus-only confessions/gossip. Every post (and its
@@ -51,7 +50,6 @@ function TeaDetail({ t, onBack, onValidate, myVote, onComment, onReport }) {
   const truePct = Math.round((t.trueCount / total) * 100);
   return (
     <div className="relative flex-1 bg-zinc-950 flex flex-col min-h-0">
-      <OrbitWatermark />
       <div className="relative z-10 flex flex-col min-h-0 flex-1">
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
           <button onClick={onBack} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-900"><ArrowLeft size={18} className="text-zinc-300" /></button>
@@ -126,7 +124,6 @@ export function LocaliTeaScreen({ teaPosts, onClose, verified, onBlocked, onPost
 
   return (
     <div className="relative flex-1 bg-zinc-950 flex flex-col min-h-0">
-      <OrbitWatermark />
       <div className="relative z-10 flex flex-col min-h-0 flex-1">
         <div className="flex items-center gap-2.5 px-4 pt-4 pb-2">
           <button onClick={onClose} className="shrink-0"><ArrowLeft size={19} className="text-zinc-300" /></button>

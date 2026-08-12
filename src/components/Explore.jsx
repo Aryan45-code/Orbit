@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { Search, BadgeCheck, Users } from "lucide-react";
 import { CATEGORIES, COLOR_MAP } from "../data/constants.js";
-import { OrbitWatermark } from "./Common.jsx";
 import { EmptyState } from "./EmptyState.jsx";
 
 // Explore = directory, not discovery-by-distance: two sub-tabs, Clubs
@@ -50,7 +49,6 @@ export function ExploreScreen({ subTab, setSubTab, clubs, communities, onOpen })
 
   return (
     <div className="relative flex-1 overflow-y-auto no-scrollbar pb-6">
-      <OrbitWatermark />
       <div className="relative z-10">
         <div className="px-4 pt-4">
           <p className="font-bold text-zinc-50 text-lg">Explore</p>

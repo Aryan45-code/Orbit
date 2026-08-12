@@ -6,7 +6,7 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import { CATEGORIES, COLOR_MAP, MOCK_SIMILAR_PEOPLE } from "../data/constants.js";
 import { baseSparks, genMembers, nextId, handleFor } from "../utils/helpers.js";
-import { OrbitWatermark, Avatar } from "./Common.jsx";
+import { Avatar } from "./Common.jsx";
 
 export function CommunitySettings({ c, onSave, onDelete, onClose }) {
   const [name, setName] = useState(c.name);
@@ -131,7 +131,6 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
   const togglePostSpark = (id) => setPostSparkIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
   return (
     <div className="relative flex-1 bg-zinc-950 flex flex-col min-h-0">
-      <OrbitWatermark />
       <div className="relative z-10 flex flex-col min-h-0 overflow-y-auto no-scrollbar flex-1">
         <div className="flex items-center justify-between px-4 pt-4 pb-1 shrink-0">
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-900"><ArrowLeft size={18} className="text-zinc-300" /></button>

@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from "react";
 import { Plus, Users, Flame, TrendingUp, Megaphone, Compass } from "lucide-react";
 import { CATEGORIES, COLOR_MAP, MOCK_ADS } from "../data/constants.js";
 import { interestMatchCount, baseSparks, communityTrendScore } from "../utils/helpers.js";
-import { OrbitWatermark } from "./Common.jsx";
 import { SkeletonFeed, SkeletonStory } from "./Skeleton.jsx";
 import { EmptyState } from "./EmptyState.jsx";
 
@@ -163,7 +162,6 @@ export function HomeScreen({ communities, joinedIds, onOpen, filterCat, setFilte
   }, [communities, interests, joinedIds]);
   return (
     <div className="relative flex-1 overflow-y-auto no-scrollbar pb-4">
-      <OrbitWatermark />
       <div className="relative z-10">
         {loading ? (
           <div className="flex gap-3.5 overflow-x-auto px-4 py-3.5 no-scrollbar border-b border-zinc-900">

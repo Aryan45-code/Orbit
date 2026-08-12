@@ -5,7 +5,7 @@ import {
 import { MOCK_SUGGESTED_PEOPLE, MOCK_INDIVIDUAL_CHATS } from "../data/constants.js";
 import { nextId } from "../utils/helpers.js";
 import { useClickOutside } from "../utils/hooks.js";
-import { OrbitWatermark, Avatar } from "./Common.jsx";
+import { Avatar } from "./Common.jsx";
 import { EmptyState } from "./EmptyState.jsx";
 
 export function ChatThread({ contact, onBack }) {
@@ -93,7 +93,6 @@ export function DMPanel({ onClose, incoming, setIncoming, outgoing, setOutgoing,
 
   return (
     <div className="relative flex-1 bg-zinc-950 flex flex-col min-h-0">
-      <OrbitWatermark />
       <div className="relative z-10 flex flex-col min-h-0 flex-1">
         <div className="flex items-center gap-2.5 px-4 pt-4 pb-2">
           <button onClick={onClose} className="shrink-0"><ArrowLeft size={19} className="text-zinc-300" /></button>

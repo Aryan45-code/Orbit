@@ -45,30 +45,6 @@ export function GuestBanner({ onVerify }) {
   );
 }
 
-// Alternate orbit emblem — three crossing elliptical rings around a center
-// point, like electron orbits around a nucleus. Used in place of the plain
-// lucide Orbit glyph wherever the brand mark needs to feel a bit more custom.
-export function OrbitEmblem({ size = 300, className = "" }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" className={className}>
-      <circle cx="50" cy="50" r="3.5" fill="currentColor" />
-      <ellipse cx="50" cy="50" rx="46" ry="18" stroke="currentColor" strokeWidth="1.2" />
-      <ellipse cx="50" cy="50" rx="46" ry="18" stroke="currentColor" strokeWidth="1.2" transform="rotate(60 50 50)" />
-      <ellipse cx="50" cy="50" rx="46" ry="18" stroke="currentColor" strokeWidth="1.2" transform="rotate(120 50 50)" />
-    </svg>
-  );
-}
-
-// Subtle full-page emblem — sits behind every screen's content at near-zero
-// opacity so it reads as texture, not a UI element. Never intercepts clicks.
-export function OrbitWatermark({ size = 300 }) {
-  return (
-    <div className="pointer-events-none select-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
-      <OrbitEmblem size={size} className="text-zinc-100 opacity-[0.04]" />
-    </div>
-  );
-}
-
 // Aurora glow — three soft, slow-drifting color blobs behind hero-style
 // screens (onboarding, empty states). Gives the near-black surface some
 // life without competing with foreground content. Never intercepts clicks.

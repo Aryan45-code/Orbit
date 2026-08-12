@@ -1,7 +1,6 @@
 import React from "react";
 import { CalendarDays, Clock, MapPin, Users, Check, ArrowRight } from "lucide-react";
 import { CATEGORIES, COLOR_MAP, MOCK_ADS } from "../data/constants.js";
-import { OrbitWatermark } from "./Common.jsx";
 import { EmptyState } from "./EmptyState.jsx";
 import { AdCard } from "./Home.jsx";
 
@@ -50,7 +49,6 @@ export function EventsScreen({ events, registeredEventIds, interests, onRegister
   });
   return (
     <div className="relative flex-1 overflow-y-auto no-scrollbar pb-6">
-      <OrbitWatermark />
       <div className="relative z-10">
         <div className="px-4 pt-4">
           <p className="font-bold text-zinc-50 text-lg flex items-center gap-1.5"><CalendarDays size={17} className="text-violet-400" />Events</p>

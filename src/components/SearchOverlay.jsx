@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { ArrowLeft, Search, X } from "lucide-react";
 import { CATEGORIES, COLOR_MAP } from "../data/constants.js";
-import { OrbitWatermark } from "./Common.jsx";
 import { EmptyState } from "./EmptyState.jsx";
 
 export function SearchOverlay({ communities, onOpen, onClose }) {
@@ -15,7 +14,6 @@ export function SearchOverlay({ communities, onOpen, onClose }) {
   }, [q, communities]);
   return (
     <div className="relative flex-1 bg-zinc-950 flex flex-col min-h-0">
-      <OrbitWatermark />
       <div className="relative z-10 flex flex-col min-h-0 flex-1">
       <div className="flex items-center gap-2.5 px-4 pt-4 pb-3 border-b border-zinc-900">
         <button onClick={onClose} className="shrink-0"><ArrowLeft size={19} className="text-zinc-300" /></button>

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { ArrowLeft, ChevronLeft, ShieldCheck } from "lucide-react";
 import { CATEGORIES, COLOR_MAP } from "../data/constants.js";
-import { OrbitWatermark } from "./Common.jsx";
 
 export function CreateCommunity({ onCreate, onClose, verified, onBlocked, onVerifyNow }) {
   const [step, setStep] = useState(1);
@@ -10,7 +9,6 @@ export function CreateCommunity({ onCreate, onClose, verified, onBlocked, onVeri
   const [desc, setDesc] = useState("");
   return (
     <div className="relative flex-1 bg-zinc-950 flex flex-col min-h-0">
-      <OrbitWatermark />
       <div className="relative z-10 flex-1 flex flex-col min-h-0">
       <div className="flex items-center gap-2.5 px-5 pt-4 pb-2 shrink-0">
         <button onClick={onClose} className="w-8 h-8 -ml-1.5 flex items-center justify-center rounded-full hover:bg-zinc-900"><ArrowLeft size={18} className="text-zinc-300" /></button>

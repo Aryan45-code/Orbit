@@ -4,7 +4,7 @@ import {
 } from "lucide-react";
 import { CATEGORIES, COLOR_MAP, MOCK_SIMILAR_PEOPLE } from "../data/constants.js";
 import { useClickOutside } from "../utils/hooks.js";
-import { OrbitWatermark, Avatar } from "./Common.jsx";
+import { Avatar } from "./Common.jsx";
 import { nextId } from "../utils/helpers.js";
 import { EmptyState } from "./EmptyState.jsx";
 
@@ -28,7 +28,6 @@ export function ProfileScreen({ user, joinedCommunities, onEditName, onVerifyGue
   const saveProfile = () => { onEditName(draftName); setBio(draftBio); setEditing(false); };
   return (
     <div className="relative flex-1 overflow-y-auto no-scrollbar pb-6">
-      <OrbitWatermark />
       <div className="relative z-10">
       <div className="flex items-center justify-between px-5 pt-5">
         <div className="flex items-center gap-1.5">
