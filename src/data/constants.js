@@ -171,4 +171,4 @@ export const REPORT_REASONS = ["Spam or scam", "Harassment or bullying", "Inappr
 
 export const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@500;600&display=swap'); .no-scrollbar{scrollbar-width:none;-ms-overflow-style:none;} .no-scrollbar::-webkit-scrollbar{display:none;width:0;height:0} .mono{font-family:'JetBrains Mono',monospace;}`;
 
-export const ONBOARDING_STEPS = ["contact", "otp", "profile"];
+export const ONBOARDING_STEPS = ["contact", "profile"];

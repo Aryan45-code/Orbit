@@ -22,7 +22,14 @@ export function CommunitySettings({ c, onSave, onDelete, onClose }) {
         </div>
         <div className="px-5 pb-6">
           <p className="text-xs text-zinc-500 mb-1.5">Name</p>
-          <input value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm mb-4 outline-none focus:border-violet-500" />
+          <input
+            value={name} onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" || !name.trim()) return;
+              onSave({ name: name.trim(), desc: desc.trim() || "No description yet.", category, tags: [category] });
+            }}
+            className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm mb-4 outline-none focus:border-violet-500"
+          />
           <p className="text-xs text-zinc-500 mb-1.5">Description</p>
           <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm mb-4 outline-none focus:border-violet-500" />
           <p className="text-xs text-zinc-500 mb-1.5">Category</p>

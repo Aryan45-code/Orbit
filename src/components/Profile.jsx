@@ -70,7 +70,15 @@ export function ProfileScreen({ user, joinedCommunities, onEditName, onVerifyGue
       <div className="px-5 pt-3.5">
         {editing ? (
           <div className="space-y-2 mb-3">
-            <input value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Your name" className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500" />
+            <input
+              value={draftName} onChange={(e) => setDraftName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                onEditName(draftName); setBio(draftBio); setEditing(false);
+              }}
+              placeholder="Your name"
+              className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500"
+            />
             <textarea value={draftBio} onChange={(e) => setDraftBio(e.target.value)} placeholder="Short bio — what are you looking for nearby?" rows={2} className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500" />
             <button onClick={() => { onEditName(draftName); setBio(draftBio); setEditing(false); }} className="text-xs text-violet-400 font-medium">Save</button>
           </div>
