@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Check, ShieldCheck, Clock, ChevronLeft, ArrowRight, GraduationCap } from "lucide-react";
+import { Check, ChevronLeft, ArrowRight, GraduationCap } from "lucide-react";
 import { CATEGORIES, COLOR_MAP, ONBOARDING_STEPS } from "../data/constants.js";
-import { Logo, AuroraBackground, OrbitEmblem } from "./Common.jsx";
+import { Logo, AuroraBackground } from "./Common.jsx";
 
 const COLLEGE_EMAIL_DOMAIN = "muj.manipal.edu";
 
@@ -28,9 +28,7 @@ export function Onboarding({ onDone, onGuest }) {
       <div className="relative z-10 flex-1 flex flex-col">
       <div className="flex items-center justify-between animate-fade-in-up">
         <Logo size="text-2xl" />
-        {step === "contact" && <OrbitEmblem size={34} className="text-violet-400/60" />}
       </div>
-      <p className="text-sm text-zinc-500 mt-1.5 animate-fade-in-up stagger-1">Exclusively for Manipal Jaipur students.</p>
       <div className="flex items-center gap-1.5 mt-6 mb-8 animate-fade-in-up stagger-1">
         {ONBOARDING_STEPS.map((s, i) => (
           <span key={s} className={`h-1 rounded-full transition-all duration-300 ${i === stepIndex ? "w-7 bg-violet-400 shadow-[0_0_8px_rgba(96,165,250,0.6)]" : i < stepIndex ? "w-4 bg-violet-400/40" : "w-4 bg-zinc-800"}`} />
@@ -38,10 +36,9 @@ export function Onboarding({ onDone, onGuest }) {
       </div>
       {step === "contact" && (
         <div className="flex-1 flex flex-col">
-          <p className="font-semibold text-zinc-100 mb-1 text-2xl leading-tight animate-fade-in-up stagger-2" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-            Sign in with your<br />college email
+          <p className="font-semibold text-zinc-100 mb-8 text-2xl leading-tight animate-fade-in-up stagger-2" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+            Let's get you in
           </p>
-          <p className="text-sm text-zinc-500 mb-6 animate-fade-in-up stagger-2">Only verified {COLLEGE_EMAIL_DOMAIN} students can join — takes less than 30 seconds.</p>
           <div className="flex items-center gap-2 bg-zinc-900/80 border border-zinc-800 rounded-xl px-3.5 py-3 mb-4 transition-colors focus-within:border-violet-500 focus-within:ring-1 focus-within:ring-violet-500/30 animate-fade-in-up stagger-3">
             <GraduationCap size={16} className="text-zinc-500 shrink-0" />
             <input
@@ -63,20 +60,6 @@ export function Onboarding({ onDone, onGuest }) {
             Send OTP <ArrowRight size={15} />
           </button>
           <div className="flex-1 min-h-6" />
-          <div className="space-y-3 mb-6 animate-fade-in-up stagger-5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0"><Check size={14} /></div>
-              <p className="text-xs text-zinc-400">Only real Manipal Jaipur students get in</p>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-violet-500/10 text-violet-400 flex items-center justify-center shrink-0"><ShieldCheck size={14} /></div>
-              <p className="text-xs text-zinc-400">Your email is never shown publicly</p>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0"><Clock size={14} /></div>
-              <p className="text-xs text-zinc-400">Stay signed in — no repeated re-verification</p>
-            </div>
-          </div>
           <button onClick={onGuest} className="w-full text-xs text-zinc-500 underline underline-offset-2 animate-fade-in-up stagger-6">Browse first, verify later</button>
         </div>
       )}
