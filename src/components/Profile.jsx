@@ -25,6 +25,7 @@ export function ProfileScreen({ user, joinedCommunities, onEditName, onVerifyGue
       .sort((a, b) => b.overlap.length - a.overlap.length)
   ), [interests]);
   const settingsMenuRef = useClickOutside(menuOpen, () => setMenuOpen(false));
+  const saveProfile = () => { onEditName(draftName); setBio(draftBio); setEditing(false); };
   return (
     <div className="relative flex-1 overflow-y-auto no-scrollbar pb-6">
       <OrbitWatermark />
@@ -72,15 +73,12 @@ export function ProfileScreen({ user, joinedCommunities, onEditName, onVerifyGue
           <div className="space-y-2 mb-3">
             <input
               value={draftName} onChange={(e) => setDraftName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                onEditName(draftName); setBio(draftBio); setEditing(false);
-              }}
+              onKeyDown={(e) => { if (e.key === "Enter") saveProfile(); }}
               placeholder="Your name"
               className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500"
             />
             <textarea value={draftBio} onChange={(e) => setDraftBio(e.target.value)} placeholder="Short bio — what are you looking for nearby?" rows={2} className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500" />
-            <button onClick={() => { onEditName(draftName); setBio(draftBio); setEditing(false); }} className="text-xs text-violet-400 font-medium">Save</button>
+            <button onClick={saveProfile} className="text-xs text-violet-400 font-medium">Save</button>
           </div>
         ) : (
           <>

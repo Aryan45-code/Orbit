@@ -102,7 +102,7 @@ export function Onboarding({ onDone, onGuest }) {
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className="w-full bg-zinc-900/80 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-xl px-3.5 py-2.5 text-sm mb-5 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors" />
             <div className="flex items-center justify-between mb-1">
               <p className="text-sm text-zinc-300 font-medium">What are you into?</p>
-              <button type="button" onClick={() => onDone(name.trim() || "You", [])} disabled={!name.trim()} className="text-xs text-violet-400 font-medium disabled:text-zinc-600">Skip — show me everything</button>
+              <button type="button" onClick={() => onDone(name.trim(), [])} disabled={!name.trim()} className="text-xs text-violet-400 font-medium disabled:text-zinc-600">Skip — show me everything</button>
             </div>
             <p className="text-xs text-zinc-500 mb-3">Pick as many as you like — we'll personalize your home feed. Or skip to see all communities and clubs.</p>
             <div className="grid grid-cols-2 gap-2">

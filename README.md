@@ -43,7 +43,7 @@ src/
     helpers.js               Pure functions: id generation, trend/match scoring, Locali-Tea expiry, handle/member generation
     hooks.js                  useClickOutside (closes dropdowns/menus on outside click/tap)
   components/
-    Onboarding.jsx            Email verification + OTP + profile setup (3-step flow)
+    Onboarding.jsx            Email + OTP verification (one page) + profile setup (2-step flow)
     Home.jsx                  Home feed: stories row, category filter, interest-matched picks, community cards
     Explore.jsx                Directory of Clubs / Communities (search + category filter)
     Events.jsx                 Events feed + registration
@@ -129,7 +129,7 @@ These are the shapes a real API needs to return. Every array below is currently 
 - `CATEGORIES` — the fixed list of 16 interest/category names, each with an icon + color. This is the taxonomy communities, clubs, events, and user interests all key off of.
 - `COLOR_MAP` — Tailwind class lookup per color name (`indigo`, `rose`, etc.), purely presentational.
 - `REPORT_REASONS` — fixed list of 5 report reasons shown in the report modal.
-- `ONBOARDING_STEPS` — `["contact", "otp", "profile"]`, drives the onboarding progress bar.
+- `ONBOARDING_STEPS` — `["contact", "profile"]`, drives the onboarding progress bar. Email entry and OTP verification share the single "contact" step (the OTP field is revealed inline after "Send OTP", via a local `otpSent` flag in `Onboarding.jsx` — not a separate step).
 
 **Not in `constants.js`, but real state a backend needs to own:**
 - `user` (in `App.jsx`): `{ name: string, verified: boolean, interests: string[] }` — no email, password, or user ID is stored client-side at all today.

@@ -13,6 +13,10 @@ export function CommunitySettings({ c, onSave, onDelete, onClose }) {
   const [desc, setDesc] = useState(c.desc);
   const [category, setCategory] = useState(c.category);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const save = () => {
+    if (!name.trim()) return;
+    onSave({ name: name.trim(), desc: desc.trim() || "No description yet.", category, tags: [category] });
+  };
   return (
     <div className="absolute inset-0 bg-black/60 z-[70] flex items-end" onClick={onClose}>
       <div className="bg-zinc-950 w-full rounded-t-3xl max-h-[92%] overflow-y-auto no-scrollbar border-t border-zinc-800" onClick={(e) => e.stopPropagation()}>
@@ -24,10 +28,7 @@ export function CommunitySettings({ c, onSave, onDelete, onClose }) {
           <p className="text-xs text-zinc-500 mb-1.5">Name</p>
           <input
             value={name} onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== "Enter" || !name.trim()) return;
-              onSave({ name: name.trim(), desc: desc.trim() || "No description yet.", category, tags: [category] });
-            }}
+            onKeyDown={(e) => { if (e.key === "Enter") save(); }}
             className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm mb-4 outline-none focus:border-violet-500"
           />
           <p className="text-xs text-zinc-500 mb-1.5">Description</p>
@@ -49,7 +50,7 @@ export function CommunitySettings({ c, onSave, onDelete, onClose }) {
           </div>
           <button
             disabled={!name.trim()}
-            onClick={() => onSave({ name: name.trim(), desc: desc.trim() || "No description yet.", category, tags: [category] })}
+            onClick={save}
             className="w-full py-2.5 rounded-xl bg-violet-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 text-sm font-semibold mb-3"
           >
             Save changes

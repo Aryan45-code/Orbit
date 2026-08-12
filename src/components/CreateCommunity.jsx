@@ -17,7 +17,7 @@ export function CreateCommunity({ onCreate, onClose, verified, onBlocked, onVeri
         <p className="font-bold text-zinc-50">New community</p>
       </div>
         {!verified ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center px-8 py-10">
+          <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col items-center justify-center text-center px-8 py-10">
             <ShieldCheck size={30} className="text-zinc-700 mb-3" />
             <p className="font-semibold text-zinc-200">Verify your account to create a community</p>
             <p className="text-sm text-zinc-500 mt-1.5">Only verified members can start new communities on Orbit.</p>
