@@ -4,7 +4,14 @@ Orbit is a campus-exclusive social app for **Manipal University Jaipur** student
 
 This repo is the **frontend only** (React + Vite). There is no backend yet — every piece of data (communities, events, chats, notifications, posts) currently lives in in-memory React state, seeded from mock data, and is lost on page refresh. This document exists to hand the frontend to a backend developer: what the app does, what data it expects, and exactly what currently-fake behavior needs a real implementation.
 
-> The product spec (`SPEC.md`) and a proposed backend design (`BACKEND_ARCHITECTURE.docx`, summarized in [§8](#8-planned-backend-stack-supabase) below) already exist in this repo — read those too, this README is the map that ties them to the actual code.
+**Other docs in this repo — read in this order:**
+1. `PRODUCT_DESIGN_AND_FEATURES.docx` — what Orbit is and every feature, for anyone getting oriented without reading code.
+2. `FRONTEND_ARCHITECTURE.docx` — a deeper dive into exactly how this codebase is built (this README's §2–§6 summarize it).
+3. `BACKEND_ARCHITECTURE_FIREBASE.docx` — **the current backend plan**, summarized in [§8](#8-planned-backend-stack-firebase) below.
+4. `SPEC.md` — the original product spec.
+5. `BACKEND_ARCHITECTURE.docx` — an earlier Supabase-based backend proposal. **Superseded by the Firebase doc above** — kept in the repo for reference only, do not build against it.
+
+This README is the map that ties all of the above to the actual code.
 
 ---
 
@@ -134,13 +141,13 @@ Everything lives in local component state (`useState`/`useMemo`/`useCallback`), 
 
 ## 7. Client-side logic a backend needs to replicate or replace
 
-**Email domain lock (`Onboarding.jsx`)** — students only ever type the part of their email *before* `@`; the domain is hardcoded to `muj.manipal.edu` and appended automatically (`COLLEGE_EMAIL_DOMAIN` constant), so there is no way to type a non-Manipal address in the UI at all. **This is a client-side-only restriction — it is not real verification.** The backend must independently enforce a domain allow-list on signup (this is exactly what `BACKEND_ARCHITECTURE.docx` §3 describes: reject any email outside the approved domain(s) in a Postgres trigger or edge function, before an OTP is even sent).
+**Email domain lock (`Onboarding.jsx`)** — students only ever type the part of their email *before* `@`; the domain is hardcoded to `muj.manipal.edu` and appended automatically (`COLLEGE_EMAIL_DOMAIN` constant), so there is no way to type a non-Manipal address in the UI at all. **This is a client-side-only restriction — it is not real verification.** The backend must independently re-check the domain server-side before an OTP is even sent (`BACKEND_ARCHITECTURE_FIREBASE.docx` §3: a `requestOtp` Cloud Function re-validates the `@muj.manipal.edu` suffix — never trust the client-side check alone, since anyone can call the API directly).
 
-**OTP verification is entirely fake** — `Onboarding.jsx`'s OTP step accepts *any* 4 digits and never sends or checks anything. A real OTP send/verify flow (Supabase Auth email OTP, per `BACKEND_ARCHITECTURE.docx`, or equivalent) replaces this step outright.
+**OTP verification is entirely fake** — `Onboarding.jsx`'s OTP step accepts *any* 4 digits and never sends or checks anything. The Firebase plan (§3 of the Firebase doc) replaces this with a custom `requestOtp`/`verifyOtp` Cloud Function pair (Firebase's built-in passwordless auth is a magic link, not a 4-digit code, so a small custom layer sits on top of Firebase Auth to keep today's UX).
 
-**Locali-Tea's 48-hour expiry is client-side filtering, not deletion** (`utils/helpers.js`: `TEA_LIFESPAN_MS`, `isTeaExpired`, `teaTimeLeft`) — expired posts are simply filtered out of the rendered list; they still sit in memory. A real implementation needs either a scheduled deletion job (cron/TTL) or continues to filter-on-read server-side, but shouldn't rely on the client to "hide" expired content from other users.
+**Locali-Tea's 48-hour expiry is client-side filtering, not deletion** (`utils/helpers.js`: `TEA_LIFESPAN_MS`, `isTeaExpired`, `teaTimeLeft`) — expired posts are simply filtered out of the rendered list; they still sit in memory. The Firebase plan (§5) uses Firestore's native TTL policy on an `expiresAt` field — no cron job needed — but deletion isn't instant (Google documents "typically within 24 hours"), so the client-side filter-on-read stays in place as a display safeguard even after the backend is live.
 
-**Community members and posts are fabricated, not real** (important) — `Community.jsx`'s `genMembers()` (in `utils/helpers.js`) deterministically generates a fake member list from a static 24-name pool (`NAME_POOL`) based on the community's `id` and its `members` count; it is **not** a real membership list and resets differently every time you view a different community. Likewise, the posts feed and group chat messages shown inside a community are seeded with 2-3 hardcoded entries **inside `Community.jsx` itself** — they are not passed down from `App.jsx`'s state, so they reset every time you navigate away and back. A real backend needs actual `community_members`, `posts`, and `messages` tables (see §8) — none of what's currently rendered in a community's Members/Posts/Chat tabs reflects real data.
+**Community members and posts are fabricated, not real** (important) — `Community.jsx`'s `genMembers()` (in `utils/helpers.js`) deterministically generates a fake member list from a static 24-name pool (`NAME_POOL`) based on the community's `id` and its `members` count; it is **not** a real membership list and resets differently every time you view a different community. Likewise, the posts feed and group chat messages shown inside a community are seeded with 2-3 hardcoded entries **inside `Community.jsx` itself** — they are not passed down from `App.jsx`'s state, so they reset every time you navigate away and back. A real backend needs actual `communities/{id}/members/{uid}` and `communities/{id}/messages/{msgId}` collections, plus a real posts source (see §8) — none of what's currently rendered in a community's Members/Posts/Chat tabs reflects real data.
 
 **"Trending" and "matched to your interests" are pure client-side scoring**, not personalization from a backend: `communityTrendScore()` = `members*0.4 + sparks*2 - lastActive*0.6`, and `interestMatchCount()` just counts overlap between a community's `tags` and the user's `interests`. These are cheap to keep as-is or move server-side once real usage data (join events, activity) exists.
 
@@ -148,21 +155,35 @@ Everything lives in local component state (`useState`/`useMemo`/`useCallback`), 
 
 **Handles** (`handleFor()` in `utils/helpers.js`) are generated client-side by slugifying the name + appending the numeric id (e.g. `dsa-grinders-6am-batch-14`) — fine as a *display* fallback, but the backend should own uniqueness enforcement at creation time (per `SPEC.md` §6), since two communities could otherwise collide or a renamed community would change its handle.
 
-## 8. Planned backend stack (Supabase)
+## 8. Planned backend stack (Firebase)
 
-`BACKEND_ARCHITECTURE.docx` (full doc in this repo) proposes: **Supabase** (Postgres + Auth + Realtime + Storage + Edge Functions) for everything, **Firebase Cloud Messaging** for push (Supabase has no native push), **Vercel** for frontend hosting. Core tables it defines: `users`, `communities`, `community_members`, `posts`, `messages` (community chat via `community_id`, DMs via `thread_id`), `dm_threads`/`dm_participants`, `chat_requests`, `events`, `event_registrations`, `notifications`, `reports` — with Row-Level Security enabled on every table from day one. It also lays out a 5-phase rollout (auth+core data → chat → clubs/events → notifications/moderation → scale checkpoint) and a scaling budget (free tier to ~2,000 users, ~$45/mo Supabase+Vercel Pro up to 10,000). Read the full document for schema details, RLS notes, and the realtime/events-registration transaction design — this section is a pointer, not a replacement for it.
+`BACKEND_ARCHITECTURE_FIREBASE.docx` (full doc in this repo) is **the current backend plan** — it replaced an earlier Supabase-based proposal (`BACKEND_ARCHITECTURE.docx`, still in the repo but superseded). It proposes an all-Firebase stack: **Firestore** (data), **Firebase Authentication** + a custom Cloud Function OTP layer (identity — see §7 above), **Cloud Functions** (server logic), **Cloud Storage for Firebase** (media), **Firebase Cloud Messaging** (push), **Firebase Hosting** (deploys the existing Vite build as-is).
+
+Key points a backend dev should know before reading the full doc:
+- **Firestore is a document database, not relational** — no `JOIN`s. The schema embeds data where a join would otherwise be needed (e.g. Locali-Tea comments/votes live *inside* the post document, not a subcollection — see below) or duplicates it (a community's member count is stored on the community doc, not computed by counting).
+- **Core collections**: `users/{uid}`, `communities/{id}` (with `members/{uid}` and `messages/{msgId}` subcollections), `events/{id}` (with `registrations/{uid}`), `dm_threads/{threadId}` (with `messages/{msgId}`), `chat_requests/{id}`, `users/{uid}/notifications/{id}`, `reports/{id}`, `tea_posts/{id}`.
+- **Locali-Tea posts are deliberately denormalized**: comments and votes are embedded directly on the `tea_posts/{id}` document (not a subcollection) specifically so Firestore's native TTL deletion removes the whole post — including every comment — in one shot. If they were modeled as a subcollection, the parent would expire on schedule but the comments would silently become permanent orphaned documents.
+- **Security Rules** (`firestore.rules`) are the access-control layer — the Firebase equivalent of Supabase's Postgres RLS. Custom claims (`verified`, `admin`, `clubAdmin:{communityId}`) are set server-side only, via the Admin SDK.
+- **Events → community linkage** is a Cloud Function `onCreate` trigger on `events/{id}/registrations/{uid}`, run inside a Firestore transaction so two simultaneous first-registrations can't create duplicate event communities.
+- **Realtime chat/notifications** use Firestore's `onSnapshot` listeners directly — no separate WebSocket service needed. Cost caveat: every open listener re-bills a read per changed document, so chat screens must unsubscribe on unmount and paginate with `limitToLast`.
+- **Scaling budget**: Spark (free) tier covers local dev, but Cloud Functions requires the pay-as-you-go **Blaze** tier — needed anyway since the OTP flow depends on Cloud Functions, so Blaze is a day-one requirement, not something deferrable. At a ~10,000-student ceiling, expect a low-hundreds-of-dollars-a-month ceiling, not a cliff. Set a Cloud Billing budget alert on day one.
+- **5-phase rollout**: (1) Foundation — project setup, custom-OTP auth, core collections wired to this frontend, Security Rules v1; (2) Core social — community/club chat, DMs, Locali-Tea + TTL; (3) Events — registration + auto-community-creation trigger; (4) Media & push — Cloud Storage, FCM; (5) Hardening — App Check, budget alerts, load-test chat listeners, moderation console.
+
+Read the full document for exact field-level schemas, the OTP Cloud Function sequence, and Security Rules examples — this section is a pointer, not a replacement for it.
 
 ## 9. What's not implemented — backend TODO checklist
 
-- [ ] Real auth: college-email domain allow-list + real OTP send/verify + session issuance (replaces the fake Onboarding flow in §7)
-- [ ] Persistent storage for communities, clubs, events, posts, community chat messages, DMs, notifications, reports (all currently in-memory only, lost on refresh)
-- [ ] Real community membership (`community_members`) — replaces the fabricated `genMembers()` output
-- [ ] Real-time delivery for community chat and DMs (currently: messages exist only in that one browser tab's state)
-- [ ] Push notifications (the notification bell is 4 hardcoded mock rows)
-- [ ] Moderation queue — `ReportModal`'s selected reason now reaches `App.jsx`'s `handleReportSubmit(reason)` (logged via `console.log` as a placeholder), but it's still just a toast, not persisted anywhere. Needs a real `reports` table/endpoint.
+- [ ] Real auth: Firebase Auth + custom `requestOtp`/`verifyOtp` Cloud Functions with server-side domain re-check + session issuance (replaces the fake Onboarding flow in §7 — see Firebase doc §3)
+- [ ] Firestore collections for communities, clubs, events, posts, community chat messages, DMs, notifications, reports (all currently in-memory only, lost on refresh — see Firebase doc §4 for exact shapes)
+- [ ] Real community membership (`communities/{id}/members/{uid}`) — replaces the fabricated `genMembers()` output
+- [ ] Realtime delivery for community chat and DMs via Firestore `onSnapshot` listeners (currently: messages exist only in that one browser tab's state)
+- [ ] Push notifications via Firebase Cloud Messaging (the notification bell is 4 hardcoded mock rows)
+- [ ] Moderation queue — `ReportModal`'s selected reason now reaches `App.jsx`'s `handleReportSubmit(reason)` (logged via `console.log` as a placeholder), but it's still just a toast, not persisted anywhere. Needs a real `reports/{id}` collection + Security Rules (write-only for regular users, read-only for admins).
 - [ ] Server-enforced unique handles for communities/clubs, generated/validated server-side instead of the client-side slug in `handleFor()`
-- [ ] Event → community linkage as one transaction (register for event ⇒ insert registration + add to community members), per `BACKEND_ARCHITECTURE.docx` §6
-- [ ] Locali-Tea expiry as a real TTL/cron rather than a client-side filter
+- [ ] Event → community linkage as a Cloud Function `onCreate` trigger + Firestore transaction (register for event ⇒ create/find linked community + add membership), per Firebase doc §6
+- [ ] Locali-Tea expiry via Firestore's native TTL policy on `expiresAt`, with comments/votes embedded on the post doc (not a subcollection) so TTL deletes them too — per Firebase doc §5. Client-side filter-on-read stays as a display safeguard since TTL deletion isn't instant.
+- [ ] Firestore Security Rules + custom claims (`verified`, `admin`, `clubAdmin:{communityId}`) — the access-control layer, equivalent to what RLS would do on a relational DB
+- [ ] App Check enabled before public launch (Firebase doc §10) — without it, Cloud Functions endpoints are callable by anyone who finds the URL
 - [ ] Clubs data source is an **open question** per `SPEC.md`: will official club info be entered by an admin, or supplied by the college? This affects whether an admin/moderation screen for clubs is needed at launch.
 
 ## 10. Design system reference
