@@ -105,6 +105,7 @@ function mapMessageRow(row) {
     authorId: row.author_id,
     text: row.text,
     time: timeAgo(row.created_at),
+    pinned: row.pinned,
   };
 }
 
@@ -154,7 +155,7 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
     (async () => {
       const { data } = await supabase
         .from("community_messages")
-        .select("id, text, created_at, author_id, profiles(name)")
+        .select("id, text, created_at, author_id, pinned, profiles(name)")
         .eq("community_id", c.id)
         .order("created_at", { ascending: true });
       if (!cancelled && data) setChatMessages(data.map(mapMessageRow));
@@ -191,8 +192,16 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
           return exists ? ps.map((p) => (p.id === mapped.id ? { ...p, ...mapped, who: p.who } : p)) : [mapped, ...ps];
         });
       })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "community_messages", filter: `community_id=eq.${c.id}` }, (payload) => {
-        setChatMessages((ms) => (ms.some((m) => m.id === payload.new.id) ? ms : [...ms, mapMessageRow(payload.new)]));
+      .on("postgres_changes", { event: "*", schema: "public", table: "community_messages", filter: `community_id=eq.${c.id}` }, (payload) => {
+        if (payload.eventType === "DELETE") {
+          setChatMessages((ms) => ms.filter((m) => m.id !== payload.old.id));
+          return;
+        }
+        setChatMessages((ms) => {
+          const mapped = mapMessageRow(payload.new);
+          const exists = ms.some((m) => m.id === mapped.id);
+          return exists ? ms.map((m) => (m.id === mapped.id ? { ...m, ...mapped, who: m.who } : m)) : [...ms, mapped];
+        });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "community_members", filter: `community_id=eq.${c.id}` }, async () => {
         const { data } = await supabase
@@ -282,6 +291,16 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
     const nextPinned = !post.pinned;
     await supabase.from("community_posts").update({ pinned: nextPinned }).eq("id", post.id);
     setPosts((ps) => ps.map((p) => (p.id === post.id ? { ...p, pinned: nextPinned } : currentlyPinned && p.id === currentlyPinned.id ? { ...p, pinned: false } : p)));
+  };
+
+  const togglePinMessage = async (message) => {
+    const currentlyPinned = chatMessages.find((m) => m.pinned);
+    if (currentlyPinned && currentlyPinned.id !== message.id) {
+      await supabase.from("community_messages").update({ pinned: false }).eq("id", currentlyPinned.id);
+    }
+    const nextPinned = !message.pinned;
+    await supabase.from("community_messages").update({ pinned: nextPinned }).eq("id", message.id);
+    setChatMessages((ms) => ms.map((m) => (m.id === message.id ? { ...m, pinned: nextPinned } : currentlyPinned && m.id === currentlyPinned.id ? { ...m, pinned: false } : m)));
   };
 
   const sendChat = async () => {
@@ -383,17 +402,40 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
         </div>
         {tab === "chat" && (
           <div className="flex flex-col h-[420px]">
+            {(() => {
+              const pinnedMessage = chatMessages.find((m) => m.pinned);
+              if (!pinnedMessage) return null;
+              return (
+                <div className={`flex items-start gap-2 mx-5 mt-3 px-3 py-2 rounded-xl ${cm.tint} border border-zinc-800/60`}>
+                  <Pin size={12} className={`${cm.text} mt-0.5 shrink-0`} />
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-[10px] ${cm.text} font-semibold`}>Pinned · {pinnedMessage.who}</p>
+                    <p className="text-xs text-zinc-300 truncate">{pinnedMessage.text}</p>
+                  </div>
+                  {isAdmin && (
+                    <button onClick={() => togglePinMessage(pinnedMessage)} className="text-[10px] text-zinc-500 hover:text-rose-400 shrink-0">Unpin</button>
+                  )}
+                </div>
+              );
+            })()}
             <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-3 space-y-2.5">
               {!joined && (
                 <p className="text-xs text-zinc-500 text-center py-6">Join this {c.official ? "club" : "community"} to send messages — you can still read along.</p>
               )}
               {chatMessages.map((m) => (
-                <div key={m.id} className="flex gap-2.5">
+                <div key={m.id} className="flex gap-2.5 group">
                   <Avatar label={m.who[0]} size={30} color={cat.color} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-zinc-300"><span className="font-medium text-zinc-100">{m.who}</span></p>
                     <p className="text-sm text-zinc-300">{m.text}</p>
-                    <p className="text-[11px] text-zinc-500 mono mt-0.5">{m.time}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-[11px] text-zinc-500 mono">{m.time}</p>
+                      {isAdmin && (
+                        <button onClick={() => togglePinMessage(m)} className="text-[11px] text-zinc-600 hover:text-violet-400 flex items-center gap-0.5">
+                          <Pin size={10} />{m.pinned ? "Unpin" : "Pin"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

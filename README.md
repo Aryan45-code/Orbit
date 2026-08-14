@@ -85,6 +85,7 @@ supabase/
   schema.sql                 Core tables (profiles, communities, community_members, events), RLS policies, register_for_event() RPC — run once per project
   schema_content.sql          Adds community_posts, community_post_sparks, community_messages — run once, right after schema.sql
   schema_tea_categories.sql     Adds the Tea/Confessions split (tea_posts.category, tea_reactions) — run once, after schema_tea.sql
+  schema_chat_pin.sql            Adds pinning a message in community chat (community_messages.pinned) — run once, after schema_content.sql
   schema_reviews.sql           Adds app_reviews — not currently written to (§10), kept for later
   schema_tea.sql               Adds tea_posts, tea_votes, tea_comments (Locali-Tea) — run once, after schema_content.sql
   drop_domain_lock.sql         One-time cleanup for a project that already ran an older schema.sql with the @muj.manipal.edu trigger baked in
@@ -116,6 +117,7 @@ Bottom tab bar has exactly **4 tabs**: **Home · Explore · Events · Profile**.
 | Post sparks (likes) | `community_post_sparks` | One row per user per post, toggled on/off; `spark_count` on the post syncs via trigger, same pattern as member counts |
 | Pin a post | `community_posts.pinned` | Creator-only (RLS-enforced), only one pinned post at a time |
 | Community group chat | `community_messages` | Persists, real author, members-only (RLS-enforced), live via Realtime |
+| Pin a chat message | `community_messages.pinned` | Creator-only (RLS-enforced), one pinned message at a time — see `schema_chat_pin.sql`. The seeded "Orbit" community has no creator by default, so nobody can pin there until you claim it (see that file's comment for the one-line SQL update) |
 | Community member list | `community_members` + `profiles` | Real names (joined from `profiles`), real join order, real interest-overlap matching against your own `profiles.interests` |
 | Locali-Tea posts | `tea_posts` | Text, persists, 48h expiry enforced server-side by RLS (not just the client's countdown); author stored but never selectable by any client — see anonymity note in `schema_tea.sql`. `category` (`"tea"` or `"confession"`) drives which of the two tabs a post shows up in |
 | Locali-Tea votes (Tea tab) | `tea_votes` | "true"/"cap" fact-check voting, one per user per post, toggleable; each user can only ever read their own vote rows |
