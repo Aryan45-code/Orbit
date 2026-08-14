@@ -1,12 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   ArrowLeft, Settings, TrendingUp, Crown, Flame, Search, Pin, Send,
   Image as ImageIcon, Camera, Flag, Check, X, Trash2, QrCode, BadgeCheck,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { CATEGORIES, COLOR_MAP, MOCK_SIMILAR_PEOPLE } from "../data/constants.js";
-import { baseSparks, genMembers, nextId, handleFor } from "../utils/helpers.js";
+import { CATEGORIES, COLOR_MAP } from "../data/constants.js";
+import { baseSparks, handleFor } from "../utils/helpers.js";
 import { Avatar } from "./Common.jsx";
+import { supabase } from "../lib/supabaseClient.js";
 
 export function CommunitySettings({ c, onSave, onDelete, onClose }) {
   const [name, setName] = useState(c.name);
@@ -74,12 +75,45 @@ export function CommunitySettings({ c, onSave, onDelete, onClose }) {
   );
 }
 
-export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, verified, onBlocked, sparked, onSpark, onUpdate, onDelete, trendRank, interests }) {
+function timeAgo(iso) {
+  const ms = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return "now";
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  return `${Math.floor(hr / 24)}d ago`;
+}
+
+function mapPostRow(row) {
+  return {
+    id: row.id,
+    who: row.profiles?.name || "Someone",
+    authorId: row.author_id,
+    text: row.text,
+    time: timeAgo(row.created_at),
+    hasImage: row.has_image,
+    sparks: row.spark_count,
+    pinned: row.pinned,
+  };
+}
+
+function mapMessageRow(row) {
+  return {
+    id: row.id,
+    who: row.profiles?.name || "Someone",
+    authorId: row.author_id,
+    text: row.text,
+    time: timeAgo(row.created_at),
+  };
+}
+
+export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, verified, onBlocked, sparked, onSpark, onUpdate, onDelete, trendRank, interests, authUserId, myName }) {
   const cat = CATEGORIES.find((x) => x.name === c.category);
   const cm = COLOR_MAP[cat.color];
   const Icon = cat.icon;
   const sparks = baseSparks(c) + (sparked ? 1 : 0);
-  const isAdmin = c.creator === "You";
+  const isAdmin = !!authUserId && c.creatorId === authUserId;
   const isLive = c.lastActive <= 10;
   const [tab, setTab] = useState("posts");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -88,47 +122,182 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
   const [attaching, setAttaching] = useState(false);
   const handle = useMemo(() => handleFor(c.name, c.id), [c.name, c.id]);
   const [chatDraft, setChatDraft] = useState("");
-  const [chatMessages, setChatMessages] = useState(() => ([
-    { id: "cm1", who: "Admin", text: "Welcome — introduce yourself here!", time: "2h ago" },
-  ]));
+  const [chatMessages, setChatMessages] = useState([]);
   const [memberQuery, setMemberQuery] = useState("");
-  const [pinnedId, setPinnedId] = useState("seed-2");
   const [postSparkIds, setPostSparkIds] = useState([]);
-  const [posts, setPosts] = useState(() => ([
-    { id: "seed-1", who: "Priyanshu", text: "Anyone free to meet up today evening?", time: "1h ago", hasImage: false, sparks: 3 },
-    { id: "seed-2", who: "Meher", text: "Added the shared drive link in the pinned post.", time: "5h ago", hasImage: false, sparks: 7 },
-    { id: "seed-3", who: "Aarav", text: "Great turnout last time, let's keep it going!", time: "1d ago", hasImage: true, sparks: 5 },
-  ]));
-  const { creatorName, others, total } = useMemo(() => genMembers(c), [c]);
+  const [posts, setPosts] = useState([]);
+  const [members, setMembers] = useState([]); // [{ userId, name, interests, joinedAt }]
+
+  // Real fetch + realtime, scoped to this one community. App.jsx re-mounts
+  // this component (key={selectedCommunity.id}) on every community switch,
+  // so a plain mount-time effect is enough — no need to watch c.id changing.
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const { data } = await supabase
+        .from("community_posts")
+        .select("id, text, has_image, spark_count, pinned, created_at, author_id, profiles(name)")
+        .eq("community_id", c.id)
+        .order("created_at", { ascending: false });
+      if (!cancelled && data) setPosts(data.map(mapPostRow));
+
+      if (authUserId) {
+        const { data: myRows } = await supabase
+          .from("community_post_sparks")
+          .select("post_id")
+          .eq("user_id", authUserId);
+        if (!cancelled && myRows) setPostSparkIds(myRows.map((r) => r.post_id));
+      }
+    })();
+
+    (async () => {
+      const { data } = await supabase
+        .from("community_messages")
+        .select("id, text, created_at, author_id, profiles(name)")
+        .eq("community_id", c.id)
+        .order("created_at", { ascending: true });
+      if (!cancelled && data) setChatMessages(data.map(mapMessageRow));
+    })();
+
+    (async () => {
+      const { data } = await supabase
+        .from("community_members")
+        .select("user_id, joined_at, profiles(name, interests)")
+        .eq("community_id", c.id)
+        .order("joined_at", { ascending: true });
+      if (!cancelled && data) {
+        setMembers(
+          data.map((r) => ({
+            userId: r.user_id,
+            name: r.profiles?.name || "Someone",
+            interests: r.profiles?.interests || [],
+            joinedAt: r.joined_at,
+          }))
+        );
+      }
+    })();
+
+    const channel = supabase
+      .channel(`community-${c.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "community_posts", filter: `community_id=eq.${c.id}` }, (payload) => {
+        if (payload.eventType === "DELETE") {
+          setPosts((ps) => ps.filter((p) => p.id !== payload.old.id));
+          return;
+        }
+        setPosts((ps) => {
+          const mapped = mapPostRow(payload.new);
+          const exists = ps.some((p) => p.id === mapped.id);
+          return exists ? ps.map((p) => (p.id === mapped.id ? { ...p, ...mapped, who: p.who } : p)) : [mapped, ...ps];
+        });
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "community_messages", filter: `community_id=eq.${c.id}` }, (payload) => {
+        setChatMessages((ms) => (ms.some((m) => m.id === payload.new.id) ? ms : [...ms, mapMessageRow(payload.new)]));
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "community_members", filter: `community_id=eq.${c.id}` }, async () => {
+        const { data } = await supabase
+          .from("community_members")
+          .select("user_id, joined_at, profiles(name, interests)")
+          .eq("community_id", c.id)
+          .order("joined_at", { ascending: true });
+        if (!cancelled && data) {
+          setMembers(
+            data.map((r) => ({
+              userId: r.user_id,
+              name: r.profiles?.name || "Someone",
+              interests: r.profiles?.interests || [],
+              joinedAt: r.joined_at,
+            }))
+          );
+        }
+      })
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [c.id]);
+
+  const total = members.length || c.members;
   const filteredMembers = useMemo(() => {
     const q = memberQuery.trim().toLowerCase();
-    const list = [{ name: creatorName, role: "Creator" }, ...others.map((n) => ({ name: n, role: "Member" }))];
+    const list = members.map((m) => ({ ...m, role: m.userId === c.creatorId ? "Creator" : "Member" }));
     return q ? list.filter((m) => m.name.toLowerCase().includes(q)) : list;
-  }, [memberQuery, creatorName, others]);
-  const activeNow = useMemo(() => others.filter((_, i) => i % 4 === 0).slice(0, 4), [others]);
+  }, [memberQuery, members, c.creatorId]);
+  const recentlyJoined = useMemo(
+    () => [...members].sort((a, b) => new Date(b.joinedAt) - new Date(a.joinedAt)).slice(0, 4),
+    [members]
+  );
   const matchedMembers = useMemo(() => {
     if (!interests || interests.length === 0) return [];
-    const memberNames = [creatorName, ...others];
-    return MOCK_SIMILAR_PEOPLE
-      .filter((p) => memberNames.includes(p.name))
-      .map((p) => ({ ...p, overlap: p.shared.filter((s) => interests.includes(s)) }))
-      .filter((p) => p.overlap.length > 0);
-  }, [creatorName, others, interests]);
-  const faceStack = [creatorName, ...others].slice(0, 5);
+    return members
+      .filter((m) => m.userId !== authUserId)
+      .map((m) => ({ ...m, overlap: (m.interests || []).filter((s) => interests.includes(s)) }))
+      .filter((m) => m.overlap.length > 0);
+  }, [members, interests, authUserId]);
+  const faceStack = members.slice(0, 5);
   const extraCount = Math.max(0, total - faceStack.length);
   const orderedPosts = useMemo(() => {
-    const pinned = posts.filter((p) => p.id === pinnedId);
-    const rest = posts.filter((p) => p.id !== pinnedId);
+    const pinned = posts.filter((p) => p.pinned);
+    const rest = posts.filter((p) => !p.pinned);
     return [...pinned, ...rest];
-  }, [posts, pinnedId]);
-  const handlePost = (text) => {
+  }, [posts]);
+
+  const handlePost = async (text) => {
     const t = (text ?? draft).trim();
-    if (!t) return;
-    setPosts((ps) => [{ id: nextId(), who: "You", text: t, time: "now", hasImage: attaching, sparks: 0 }, ...ps]);
+    if (!t || !authUserId) return;
     setDraft("");
     setAttaching(false);
+    const { data, error } = await supabase
+      .from("community_posts")
+      .insert({ community_id: c.id, author_id: authUserId, text: t, has_image: attaching })
+      .select("id, text, has_image, spark_count, pinned, created_at, author_id")
+      .single();
+    if (!error && data) {
+      setPosts((ps) => [{ ...mapPostRow(data), who: myName || "You" }, ...ps]);
+    }
   };
-  const togglePostSpark = (id) => setPostSparkIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+
+  const togglePostSpark = async (id) => {
+    if (!authUserId) return;
+    const already = postSparkIds.includes(id);
+    setPostSparkIds((ids) => (already ? ids.filter((x) => x !== id) : [...ids, id]));
+    setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, sparks: p.sparks + (already ? -1 : 1) } : p)));
+    const { error } = already
+      ? await supabase.from("community_post_sparks").delete().eq("post_id", id).eq("user_id", authUserId)
+      : await supabase.from("community_post_sparks").insert({ post_id: id, user_id: authUserId });
+    if (error) {
+      setPostSparkIds((ids) => (already ? [...ids, id] : ids.filter((x) => x !== id)));
+      setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, sparks: p.sparks + (already ? 1 : -1) } : p)));
+    }
+  };
+
+  const togglePin = async (post) => {
+    const currentlyPinned = posts.find((p) => p.pinned);
+    if (currentlyPinned && currentlyPinned.id !== post.id) {
+      await supabase.from("community_posts").update({ pinned: false }).eq("id", currentlyPinned.id);
+    }
+    const nextPinned = !post.pinned;
+    await supabase.from("community_posts").update({ pinned: nextPinned }).eq("id", post.id);
+    setPosts((ps) => ps.map((p) => (p.id === post.id ? { ...p, pinned: nextPinned } : currentlyPinned && p.id === currentlyPinned.id ? { ...p, pinned: false } : p)));
+  };
+
+  const sendChat = async () => {
+    const t = chatDraft.trim();
+    if (!t || !authUserId) return;
+    setChatDraft("");
+    const { data, error } = await supabase
+      .from("community_messages")
+      .insert({ community_id: c.id, author_id: authUserId, text: t })
+      .select("id, text, created_at, author_id")
+      .single();
+    if (!error && data) {
+      setChatMessages((ms) => [...ms, { ...mapMessageRow(data), who: myName || "You" }]);
+    }
+  };
+
   return (
     <div className="relative flex-1 bg-zinc-950 flex flex-col min-h-0">
       <div className="relative z-10 flex flex-col min-h-0 overflow-y-auto no-scrollbar flex-1">
@@ -184,9 +353,9 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
           </div>
           <button onClick={() => setTab("members")} className="flex items-center gap-2.5 mt-4">
             <div className="flex -space-x-2.5">
-              {faceStack.map((name, i) => (
-                <div key={i} className="ring-2 ring-zinc-950 rounded-full">
-                  <Avatar label={name[0]} size={30} color={cat.color} />
+              {faceStack.map((m, i) => (
+                <div key={m.userId || i} className="ring-2 ring-zinc-950 rounded-full">
+                  <Avatar label={m.name[0]} size={30} color={cat.color} />
                 </div>
               ))}
               {extraCount > 0 && (
@@ -235,18 +404,13 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
                   value={chatDraft} onChange={(e) => setChatDraft(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key !== "Enter" || !chatDraft.trim()) return;
-                    setChatMessages((ms) => [...ms, { id: nextId(), who: "You", text: chatDraft.trim(), time: "now" }]);
-                    setChatDraft("");
+                    sendChat();
                   }}
                   placeholder="Message the group"
                   className="flex-1 bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-full px-4 py-2 text-sm outline-none focus:border-violet-500"
                 />
                 <button
-                  onClick={() => {
-                    if (!chatDraft.trim()) return;
-                    setChatMessages((ms) => [...ms, { id: nextId(), who: "You", text: chatDraft.trim(), time: "now" }]);
-                    setChatDraft("");
-                  }}
+                  onClick={sendChat}
                   className="w-9 h-9 rounded-full bg-violet-500 text-white flex items-center justify-center shrink-0"
                 >
                   <Send size={15} />
@@ -289,12 +453,11 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
             )}
             <div className="space-y-4">
               {orderedPosts.map((p) => {
-                const isPinned = p.id === pinnedId;
+                const isPinned = p.pinned;
                 const postSparked = postSparkIds.includes(p.id);
-                const postSparkCount = (p.sparks || 0) + (postSparked ? 1 : 0);
                 return (
                   <div key={p.id} className={`flex gap-2.5 ${isPinned ? `${cm.tint} border border-zinc-800/60 -mx-2 px-3 py-2.5 rounded-xl` : ""}`}>
-                    <Avatar label={p.who[0]} size={32} color={cat.color} ring={p.who === creatorName} />
+                    <Avatar label={p.who[0]} size={32} color={cat.color} ring={p.authorId === c.creatorId} />
                     <div className="flex-1 min-w-0">
                       {isPinned && <p className={`text-[10px] ${cm.text} font-semibold flex items-center gap-1 mb-0.5`}><Pin size={10} />Pinned</p>}
                       <p className="text-sm text-zinc-300"><span className="font-medium text-zinc-100">{p.who}</span> {p.text}</p>
@@ -306,10 +469,10 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
                       <div className="flex items-center gap-3 mt-1.5">
                         <p className="text-[11px] text-zinc-500 mono">{p.time}</p>
                         <button onClick={() => togglePostSpark(p.id)} className={`flex items-center gap-1 text-[11px] mono active:scale-90 transition-transform ${postSparked ? "text-orange-400" : "text-zinc-500 hover:text-orange-400"}`}>
-                          <Flame size={11} fill={postSparked ? "currentColor" : "none"} />{postSparkCount}
+                          <Flame size={11} fill={postSparked ? "currentColor" : "none"} />{p.sparks || 0}
                         </button>
                         {isAdmin && (
-                          <button onClick={() => setPinnedId((cur) => (cur === p.id ? null : p.id))} className="text-[11px] text-zinc-500 hover:text-violet-400 flex items-center gap-0.5">
+                          <button onClick={() => togglePin(p)} className="text-[11px] text-zinc-500 hover:text-violet-400 flex items-center gap-0.5">
                             <Pin size={11} />{isPinned ? "Unpin" : "Pin"}
                           </button>
                         )}
@@ -323,19 +486,16 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
         )}
         {tab === "members" && (
           <div className="px-5 pt-4 pb-6">
-            {!memberQuery && activeNow.length > 0 && (
+            {!memberQuery && recentlyJoined.length > 0 && (
               <div className="mb-4">
                 <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />Active now
+                  Recently joined
                 </p>
                 <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-                  {activeNow.map((name, i) => (
-                    <div key={i} className="flex flex-col items-center gap-1 w-14 shrink-0">
-                      <div className="relative">
-                        <Avatar label={name[0]} size={40} color={cat.color} />
-                        <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-zinc-950" />
-                      </div>
-                      <p className="text-[10px] text-zinc-400 truncate w-full text-center">{name}</p>
+                  {recentlyJoined.map((m) => (
+                    <div key={m.userId} className="flex flex-col items-center gap-1 w-14 shrink-0">
+                      <Avatar label={m.name[0]} size={40} color={cat.color} />
+                      <p className="text-[10px] text-zinc-400 truncate w-full text-center">{m.name}</p>
                     </div>
                   ))}
                 </div>
@@ -346,11 +506,10 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
               <input value={memberQuery} onChange={(e) => setMemberQuery(e.target.value)} placeholder="Search members" className="flex-1 bg-transparent text-zinc-100 placeholder-zinc-600 text-sm outline-none" />
             </div>
             <div className="space-y-1">
-              {filteredMembers.map((m, i) => {
-                const match = MOCK_SIMILAR_PEOPLE.find((p) => p.name === m.name);
-                const overlap = match && interests ? match.shared.filter((s) => interests.includes(s)) : [];
+              {filteredMembers.map((m) => {
+                const overlap = interests ? (m.interests || []).filter((s) => interests.includes(s)) : [];
                 return (
-                  <div key={i} className="flex items-center gap-3 py-2">
+                  <div key={m.userId} className="flex items-center gap-3 py-2">
                     <Avatar label={m.name[0]} size={36} color={cat.color} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-zinc-200 truncate">{m.name}</p>
@@ -366,9 +525,6 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
                 );
               })}
               {filteredMembers.length === 0 && <p className="text-sm text-zinc-500 text-center py-8">No members match "{memberQuery}".</p>}
-              {total > others.length + 1 && !memberQuery && (
-                <p className="text-xs text-zinc-600 text-center pt-2">Showing {others.length + 1} of {total} members</p>
-              )}
             </div>
           </div>
         )}

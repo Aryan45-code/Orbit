@@ -1,17 +1,15 @@
 # Orbit
 
-Orbit is a campus-exclusive social app for **Manipal University Jaipur** students — one platform that merges student-created **communities**, official college **clubs**, campus **events**, direct messaging, and an anonymous 48-hour confession feed ("Locali-Tea"). Access is restricted to verified `@muj.manipal.edu` students.
+Orbit is a social app originally built for **Manipal University Jaipur** students — one platform that merges student-created **communities**, official college **clubs**, campus **events**, and an anonymous 48-hour confession feed ("Locali-Tea").
 
-This repo is the **frontend only** (React + Vite). There is no backend yet — every piece of data (communities, events, chats, notifications, posts) currently lives in in-memory React state, seeded from mock data, and is lost on page refresh. This document exists to hand the frontend to a backend developer: what the app does, what data it expects, and exactly what currently-fake behavior needs a real implementation.
+**Status: this is a scoped-down first beta build for ~200 known testers, launching before campus-mail deliverability and full DM/notifications work could be finished.** What's live and real (Supabase-backed, not mock): sign-in (any email, not just `@muj.manipal.edu` — see the note in §2), communities/clubs (join/leave/create, posts, sparks, pins, group chat, member list), and Locali-Tea (anonymous posts/votes/comments, 48h expiry enforced server-side). Events is listing-only for now. Direct messages, notifications, and event registration are all **"Coming soon"** placeholders — deliberately, not half-wired. See [§7](#7-still-mock-or-coming-soon-for-this-build) for exactly what that means.
 
-**Other docs in this repo — read in this order:**
+**Other docs in this repo:**
 1. `PRODUCT_DESIGN_AND_FEATURES.docx` — what Orbit is and every feature, for anyone getting oriented without reading code.
-2. `FRONTEND_ARCHITECTURE.docx` — a deeper dive into exactly how this codebase is built (this README's §2–§6 summarize it).
-3. `BACKEND_ARCHITECTURE_FIREBASE.docx` — **the current backend plan**, summarized in [§8](#8-planned-backend-stack-firebase) below.
-4. `SPEC.md` — the original product spec.
-5. `BACKEND_ARCHITECTURE.docx` — an earlier Supabase-based backend proposal. **Superseded by the Firebase doc above** — kept in the repo for reference only, do not build against it.
-
-This README is the map that ties all of the above to the actual code.
+2. `FRONTEND_ARCHITECTURE.docx` — a deeper dive into the codebase structure (written before the Supabase wiring below — still accurate on components/design system, not on the state/data section).
+3. `ORBIT_MUJ_POLICY_ANALYSIS.docx` — risk/opportunity read of MUJ's official Pre-Incubation & Start-Up Policy, if/when this goes through the university's startup process.
+4. `BACKEND_ARCHITECTURE_FIREBASE.docx` and `BACKEND_ARCHITECTURE.docx` — earlier backend proposals (Firebase, then an earlier Supabase sketch). **Superseded by the actual `supabase/schema.sql` in this repo** — kept for reference only.
+5. `SPEC.md` — the original product spec.
 
 ---
 
@@ -19,173 +17,160 @@ This README is the map that ties all of the above to the actual code.
 
 - **React 18** + **Vite 5** (dev server, build tool)
 - **Tailwind CSS 3** for styling
-- **lucide-react** for icons
-- **qrcode.react** for generating QR codes on community/club pages
-- No router (single `App.jsx` state machine — see [§6](#6-state-management)), no global state library (no Redux/Zustand/Context), no backend SDK wired in yet
+- **lucide-react** for icons, **qrcode.react** for community/club QR codes
+- **Supabase** (`@supabase/supabase-js`) — Postgres database, email-OTP auth, Realtime
+- **Capacitor** (`@capacitor/android`, `@capacitor/app`) — wraps the built web app as a native Android APK (see [§8](#8-building-the-android-apk)); `@capacitor/app` specifically powers the hardware back-button handling and the exit review prompt (§10)
+- No router (single `App.jsx` state machine — see [§6](#6-state-management)), no global state library
 
 ```bash
+cp .env.example .env    # then fill in your Supabase URL + anon key — see §2
 npm install
-npm run dev       # starts Vite dev server at http://localhost:5173
-npm run build     # production bundle to dist/
-npm run preview   # serve the production build locally
+npm run dev              # Vite dev server at http://localhost:5173
+npm run build             # production bundle to dist/
+npm run android             # build + sync + open the Android project in Android Studio
 ```
 
-## 2. Project structure
+## 2. Supabase setup (do this first — nothing works without it)
+
+1. Create a free project at [supabase.com](https://supabase.com).
+2. In the Supabase Dashboard, go to **SQL Editor → New query**, paste the entire contents of `supabase/schema.sql`, and run it. This creates the core tables (profiles, communities, community_members, events, event_registrations), Row Level Security policies, and the `register_for_event()` function. (The `@muj.manipal.edu`-only signup trigger this file used to create is now commented out by default — see the domain-lock note below.)
+3. Run `supabase/schema_content.sql` the same way — adds `community_posts`, `community_post_sparks`, and `community_messages` (Posts/Chat tabs inside a community).
+4. Run `supabase/schema_tea.sql` the same way — adds `tea_posts`, `tea_votes`, `tea_comments` (Locali-Tea). See the anonymity note at the top of that file: author identity is stored (Postgres/RLS needs it) but never selectable by the client, and these three tables are deliberately excluded from Realtime so authorship can't leak over the websocket.
+5. Run `supabase/schema_tea_categories.sql` the same way (after `schema_tea.sql`) — adds the Tea/Confessions split: a `category` column on `tea_posts`, and a new `tea_reactions` table for Confessions' emoji reactions.
+6. Run `supabase/schema_reviews.sql` the same way — adds `app_reviews`. Optional to run right now: the exit review prompt that used to write to it was disconnected from the UI (§10), so nothing currently inserts into this table. Kept for if that gets re-added.
+7. Run `supabase/seed.sql` the same way. **This version seeds exactly one real, joinable community — "Orbit" itself** — not the old 36-community/10-club/4-event sample set. Read the warning comment at the top of the file before running it on a project that already has real data: it deletes ALL existing communities/events first, seed or not.
+8. **If you're starting from a project that already ran an older version of `schema.sql`** (with the domain lock included), also run `supabase/drop_domain_lock.sql` once to remove it from that live project — editing the source file doesn't retroactively change an already-provisioned database.
+9. **Critical — configure OTP-as-a-code, not a magic link, on BOTH templates:** Supabase's default email-auth template sends a clickable link. Orbit's UI expects a typed numeric code instead. Edit **both** **Authentication → Email Templates → Magic Link** (used for returning users) **and → Confirm signup** (used the first time a new email signs up — easy to miss, and the two templates are edited separately) so the body displays `{{ .Token }}` rather than `{{ .ConfirmationURL }}`.
+10. **Check the actual code length your project sends and match it in the app.** Supabase's OTP token length isn't guaranteed to be 6 digits — this project's instance sends 8. Send yourself a real test code and count the digits in the email; `OTP_LENGTH` in `src/components/Onboarding.jsx` must match exactly or verification will silently fail (the input truncates anything longer than what it's set to).
+11. Go to **Settings → API**, copy the **Project URL** and **anon public** key into your `.env`:
+   ```
+   VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-public-key
+   ```
+12. (Optional but recommended before sending this to 200 people) **Settings → Auth → Rate Limits** — Supabase's default OTP send rate limit is generous but finite; if the beta group is large and active, keep an eye on it in the dashboard during the first day.
+
+`.env` is git-ignored — never commit real keys. The anon key is safe to ship inside the app itself (that's what it's for); it only ever does what the Row Level Security policies in the schema files allow.
+
+**Why no domain lock right now:** Orbit was built campus-exclusive (`@muj.manipal.edu` only, enforced by a Postgres trigger — not just UI). For this first 200-person beta that trigger is off and the onboarding screen takes any email, because campus-mail deliverability (MUJ's mail server was soft-bouncing transactional mail from an unauthenticated sending domain) couldn't be fixed before launch. To re-enable it later: uncomment the function + trigger block in `supabase/schema.sql` and run it once, and swap the plain-email input in `Onboarding.jsx` back to a fixed-domain one if you want the UI to match.
+
+## 3. Project structure
 
 ```
 src/
   main.jsx                 React entry point, mounts <App />
-  App.jsx                  ALL top-level state + screen routing lives here
+  App.jsx                  ALL top-level state + screen routing + Supabase calls live here
   index.css                Tailwind directives + custom animation/utility classes
+  lib/
+    supabaseClient.js        Configured Supabase client, reads VITE_SUPABASE_* env vars
   data/
-    constants.js            Every mock dataset + static config (see §4)
+    constants.js            Static config (categories, colors) + a little mock data still kept around for the orphaned Chat.jsx (unused, see §7)
   utils/
-    helpers.js               Pure functions: id generation, trend/match scoring, Locali-Tea expiry, handle/member generation
-    hooks.js                  useClickOutside (closes dropdowns/menus on outside click/tap)
+    helpers.js               Pure functions: slugify/handle generation, trend scoring, Locali-Tea expiry, hashId (for uuid-safe ids)
+    hooks.js                  useClickOutside
   components/
-    Onboarding.jsx            Email + OTP verification (one page) + profile setup (2-step flow)
+    Onboarding.jsx            Real Supabase email-OTP verification + profile setup — accepts any email for this build (see §2); shows the "Testing phase" beta notice
     Home.jsx                  Home feed: stories row, category filter, interest-matched picks, community cards
     Explore.jsx                Directory of Clubs / Communities (search + category filter)
-    Events.jsx                 Events feed + registration
-    Community.jsx               Community/club detail page (posts, chat, members, settings, QR)
-    CreateCommunity.jsx          3-step "create a community" flow
-    Chat.jsx                     Direct messages: requests inbox, 1:1 threads, new-message picker
-    LocaliTea.jsx                Anonymous 48h confession feed + comments
-    Profile.jsx                  User's own profile: bio, interests, post grid, joined communities
-    SearchOverlay.jsx            Global search across communities + clubs
-    ReportModal.jsx               Report-content modal (community, club, or Locali-Tea post)
-    TopBar.jsx / BottomNav.jsx    App chrome: top icons + notifications dropdown, bottom tab bar
-    Common.jsx                    Shared: Logo, Avatar, Toast, GuestBanner, background/emblem decoration
-    Skeleton.jsx                  Loading-state placeholders (shimmer cards/circles)
-    EmptyState.jsx                 Reusable "nothing here yet" placeholder (icon + title + subtitle)
+    Events.jsx                 Events feed — listing only for this build, registration is a "Coming soon" state (see §7)
+    Community.jsx               Community/club detail page — posts, sparks, pin, chat, and members are all real Supabase data (fetched + realtime-subscribed on mount); settings, QR are real too
+    CreateCommunity.jsx          3-step "create a community" flow — writes to Supabase
+    Chat.jsx                     Direct messages UI — built but currently unreferenced/unreachable, see §7
+    LocaliTea.jsx                Anonymous 48h confession feed — real Supabase data now, see §5
+    Profile.jsx                  User's own profile
+    ReviewPrompt.jsx              Star-rating + feedback sheet — built, writes to app_reviews, but not currently wired into App.jsx (§10)
+    SearchOverlay.jsx / ReportModal.jsx / TopBar.jsx / BottomNav.jsx / Common.jsx / Skeleton.jsx / EmptyState.jsx
+android/                    Capacitor-generated native Android project — open this in Android Studio
+capacitor.config.json       App id (com.orbit.app), app name, web build dir
+supabase/
+  schema.sql                 Core tables (profiles, communities, community_members, events), RLS policies, register_for_event() RPC — run once per project
+  schema_content.sql          Adds community_posts, community_post_sparks, community_messages — run once, right after schema.sql
+  schema_tea_categories.sql     Adds the Tea/Confessions split (tea_posts.category, tea_reactions) — run once, after schema_tea.sql
+  schema_reviews.sql           Adds app_reviews — not currently written to (§10), kept for later
+  schema_tea.sql               Adds tea_posts, tea_votes, tea_comments (Locali-Tea) — run once, after schema_content.sql
+  drop_domain_lock.sql         One-time cleanup for a project that already ran an older schema.sql with the @muj.manipal.edu trigger baked in
+  seed.sql                    Sample clubs/communities/events — run once after the schema files
 ```
 
-Two files that existed in earlier commits — `Discover.jsx` and `Nearby.jsx` (a geolocation/"nearby" feature) — have been deleted. They were leftovers from before the product pivoted to campus-only (no geolocation, see `SPEC.md` §2) and were never imported anywhere; `SPEC.md` itself flags them as safe to delete. Distance fields (`dx`/`dy`) were likewise stripped from the seed data in `constants.js` since nothing reads them anymore.
+## 4. Navigation model
 
-## 3. Navigation model
+Bottom tab bar has exactly **4 tabs**: **Home · Explore · Events · Profile**. No dedicated "Chat" tab:
+- **Community/club chat** lives inside that community's own detail page — real.
+- **Locali-Tea** opens from a coffee-cup icon in the top bar — real.
+- **Direct messages** — the message icon in the top bar shows a "Coming soon" toast instead of opening anything (see §7).
+- **Notifications** — the bell in the top bar opens a small dropdown that just says "Coming soon" (see §7).
 
-Bottom tab bar has exactly **4 tabs**: **Home · Explore · Events · Profile**. There is no dedicated "Chat" tab — messaging is contextual:
-- **Community/club chat** lives inside that community's own detail page (a tab alongside Posts/Members).
-- **Direct messages (1:1) + chat requests** open from a message icon in the top bar.
-- **Locali-Tea** (anonymous confessions) opens from a coffee-cup icon in the top bar.
+`App.jsx` has no router — a manual state machine: `stage` (`"onboarding"` vs `"app"`), `activeTab`, and overlay booleans (`selectedCommunity`, `showCreate`, `searchOpen`, `teaOpen`).
 
-`App.jsx` has no router — it's a manual state machine: `stage` (`"onboarding"` vs `"app"`), `activeTab` (one of the 4 tabs), and a handful of booleans (`selectedCommunity`, `showCreate`, `searchOpen`, `messagesOpen`, `teaOpen`) that each render a full-screen overlay over the tab content when set.
+## 5. What's real (backed by Supabase)
 
-## 4. Screens & what data each one needs
-
-| Screen | Purpose | Data it reads |
+| Feature | Table(s) | Notes |
 |---|---|---|
-| **Onboarding** | College-email verification (fake OTP) → name + interest picker. "Browse as guest" skips verification with reduced access. | none in — writes `{ name, verified, interests }` |
-| **Home** | Feed of joined-first stories, category filter chips, interest-matched picks, community cards grouped by category, one sponsored ad slot. | `communities`, `joinedIds`, `sparkedIds`, `user.interests` |
-| **Explore** | Directory with two sub-tabs: **Clubs** (official, `official: true`) and **Communities** (student-created). Search + category filter. | `clubs`, `communities` |
-| **Events** | List of events, sorted with interest-matches first. Registering grants instant access to that event's auto-created community. | `events`, `registeredEventIds`, `user.interests` |
-| **Community detail** | Posts feed, group chat, member list (with search), settings (rename/delete, admin-only), QR code + handle. | one `community` object; members/posts/chat are currently generated/local (see §5 caveats) |
-| **Create Community** | 3-step flow: pick category → name + description → confirm. Blocked for unverified/guest users. | writes a new community object |
-| **Direct Messages** | Tabs for incoming/outgoing chat **requests** and existing **1:1 threads**; a "new message" picker suggests people from shared communities. | `incoming`, `outgoing`, mock suggested people, mock chat list |
-| **Locali-Tea** | Anonymous text posts, "True"/"Cap" vote buttons, threaded comments. Every post (and its comments) disappears 48h after posting. | `teaPosts` |
-| **Profile** | Editable name/bio, interest tags, "people like you" (shared-interest suggestions), a post grid, and a grid of joined communities. | `user`, `joinedCommunities` |
-| **Search** | Global filter across all communities + clubs by name or category. | `communities` + `clubs` combined |
-
-## 5. Data models currently mocked in `src/data/constants.js`
-
-These are the shapes a real API needs to return. Every array below is currently hardcoded and given a generated `id` via `nextId()` (an in-memory counter — **not** a real unique/persistent ID scheme, don't carry that over).
-
-**Community / Club** (`SEED_COMMUNITIES`, `CLUBS` — same shape, clubs just set `official: true`):
-```
-{
-  id: string,
-  name: string,
-  category: string,          // must match one of CATEGORIES (see below)
-  tags: string[],             // usually [category], can include more
-  desc: string,
-  members: number,            // just a count — no real member list exists server-side yet
-  lastActive: number,         // MINUTES ago (not a timestamp) — used to compute "live" badge (<=10) and trend sort
-  creator: string,            // "Seed" | "College" | "You" | "EventSystem" (event-linked communities)
-  official: boolean,
-}
-```
-
-**Event** (`MOCK_EVENTS`):
-```
-{ id, title, when: string ("Tomorrow, 5:00 PM" — NOT a real Date), where: string, category, tags: string[], capacity: number, desc }
-```
-`when` is a display string today, not a parseable date/time — a real backend should use an actual timestamp and let the frontend format it.
-
-**Notification** (`MOCK_NOTIFICATIONS`): `{ id, text, time: string ("6m ago"), unread: boolean }`
-
-**Chat request** — incoming (`MOCK_INCOMING_REQUESTS`) / outgoing (`MOCK_OUTGOING_REQUESTS`): `{ id, name, context: string, status?: "pending" }` (outgoing only)
-
-**1:1 chat** (`MOCK_INDIVIDUAL_CHATS`): `{ id, name, lastMsg, time, unread }`
-
-**Suggested person** (`MOCK_SUGGESTED_PEOPLE`, for "new message" picker): `{ id, name, context }`
-
-**Ad** (`MOCK_ADS`): `{ id, title, subtitle, cta, color }`
-
-**"People like you"** (`MOCK_SIMILAR_PEOPLE`, Profile screen): `{ id, name, shared: string[] }` — `shared` is a list of category names, matched against the current user's `interests`.
-
-**Locali-Tea post** (`MOCK_TEA`): `{ id, text, trueCount, capCount, comments: [{ who, text, time }], createdAt: number (epoch ms) }`
-
-**Static config, not per-record data:**
-- `CATEGORIES` — the fixed list of 16 interest/category names, each with an icon + color. This is the taxonomy communities, clubs, events, and user interests all key off of.
-- `COLOR_MAP` — Tailwind class lookup per color name (`indigo`, `rose`, etc.), purely presentational.
-- `REPORT_REASONS` — fixed list of 5 report reasons shown in the report modal.
-- `ONBOARDING_STEPS` — `["contact", "profile"]`, drives the onboarding progress bar. Email entry and OTP verification share the single "contact" step (the OTP field is revealed inline after "Send OTP", via a local `otpSent` flag in `Onboarding.jsx` — not a separate step).
-
-**Not in `constants.js`, but real state a backend needs to own:**
-- `user` (in `App.jsx`): `{ name: string, verified: boolean, interests: string[] }` — no email, password, or user ID is stored client-side at all today.
-- Community **posts**, **chat messages**, and **member lists** shown inside `Community.jsx` are currently generated **inside that component** on mount (not passed down from `App.jsx`, not persisted) — see the important caveat in §7.
+| Sign-in | `auth.users` + `profiles` | Email-OTP, any email address accepted for this build (no domain lock — see §2) |
+| Session persistence | Supabase Auth session | Returning users skip onboarding entirely — checked on app load |
+| Communities & clubs | `communities` | Same table; `official: true` marks a club. Public-readable (guests browse real data too) |
+| Join / leave | `community_members` | `member_count` on `communities` stays in sync via a database trigger, not manual updates |
+| Create community | `communities` + `community_members` | Blocked for unverified/guest users |
+| Rename / delete community | `communities` | Creator-only, enforced by RLS |
+| Events (listing) | `events` | Public-readable. Registration itself is a "Coming soon" UI state for this build — see §7 |
+| Community posts | `community_posts` | Text + optional photo flag, persists, real author, only members of that community can post (RLS-enforced) |
+| Post sparks (likes) | `community_post_sparks` | One row per user per post, toggled on/off; `spark_count` on the post syncs via trigger, same pattern as member counts |
+| Pin a post | `community_posts.pinned` | Creator-only (RLS-enforced), only one pinned post at a time |
+| Community group chat | `community_messages` | Persists, real author, members-only (RLS-enforced), live via Realtime |
+| Community member list | `community_members` + `profiles` | Real names (joined from `profiles`), real join order, real interest-overlap matching against your own `profiles.interests` |
+| Locali-Tea posts | `tea_posts` | Text, persists, 48h expiry enforced server-side by RLS (not just the client's countdown); author stored but never selectable by any client — see anonymity note in `schema_tea.sql`. `category` (`"tea"` or `"confession"`) drives which of the two tabs a post shows up in |
+| Locali-Tea votes (Tea tab) | `tea_votes` | "true"/"cap" fact-check voting, one per user per post, toggleable; each user can only ever read their own vote rows |
+| Locali-Tea reactions (Confessions tab) | `tea_reactions` | Emoji reaction instead of true/cap — one per user per post, changeable by tapping a different emoji; counts land in `tea_posts.reactions` (jsonb) via trigger, same sync pattern as everything else. Each user can only read their own reaction rows |
+| Locali-Tea comments | `tea_comments` | Persists, always rendered as "Anonymous"; comments load per-post when you open it (not upfront); shared by both tabs |
+| Realtime | Supabase Realtime on `communities`, `community_posts`, `community_post_sparks`, `community_messages`, `community_members` | Live updates across everyone's screen without a manual refresh. **Not** enabled for the three `tea_*` tables — Realtime would broadcast the full row (including the hidden author column) to every subscriber regardless of column grants, which would break Locali-Tea's anonymity. It refetches on open instead. |
 
 ## 6. State management
 
-Everything lives in local component state (`useState`/`useMemo`/`useCallback`), no Context/Redux/Zustand. Almost all cross-screen state (`communities`, `joinedIds`, `events`, `notifications`, DM requests, Locali-Tea posts, the current `user`) is lifted to `App.jsx` and passed down as props with handler callbacks (`onJoinToggle`, `onCreate`, `onPostTea`, etc.) — that's the seam a backend integration should replace: turn each of those `useState` arrays into data fetched from an API, and each handler into an API call (optimistic-update the local state the same way it does now, then reconcile with the server response).
+Everything still lives in `App.jsx` local state (`useState`/`useMemo`/`useCallback`) — no Redux/Zustand/Context. The difference from a pure-mock build: the arrays that back communities/clubs/events are now populated by `supabase.from(...).select()` in a `useEffect` on mount (plus a Realtime subscription for `communities`), and the handler functions (`handleJoinToggle`, `handleCreate`, `handleRegisterEvent`, etc.) do an optimistic local update **and** an `await supabase.from(...)` call, reverting the optimistic update if the network call fails.
 
-## 7. Client-side logic a backend needs to replicate or replace
+## 7. Still mock or Coming soon, for this build
 
-**Email domain lock (`Onboarding.jsx`)** — students only ever type the part of their email *before* `@`; the domain is hardcoded to `muj.manipal.edu` and appended automatically (`COLLEGE_EMAIL_DOMAIN` constant), so there is no way to type a non-Manipal address in the UI at all. **This is a client-side-only restriction — it is not real verification.** The backend must independently re-check the domain server-side before an OTP is even sent (`BACKEND_ARCHITECTURE_FIREBASE.docx` §3: a `requestOtp` Cloud Function re-validates the `@muj.manipal.edu` suffix — never trust the client-side check alone, since anyone can call the API directly).
+This is the scope call made right before launch: rather than ship half-wired features, everything below is either fully real (§5) or cleanly disabled with an honest "Coming soon" state — nothing fake-looking is left reachable.
 
-**OTP verification is entirely fake** — `Onboarding.jsx`'s OTP step accepts *any* 4 digits and never sends or checks anything. The Firebase plan (§3 of the Firebase doc) replaces this with a custom `requestOtp`/`verifyOtp` Cloud Function pair (Firebase's built-in passwordless auth is a magic link, not a 4-digit code, so a small custom layer sits on top of Firebase Auth to keep today's UX).
+**Coming soon (intentionally disabled, no mock data shown):**
+- **Direct messages** — the message icon in the top bar shows a "Coming soon" toast. `Chat.jsx` (the DM panel UI) still exists in the repo but isn't imported/rendered anywhere anymore — reconnecting it later is a matter of re-adding the import and a `messagesOpen` overlay branch in `App.jsx`, same pattern as `teaOpen`.
+- **Notifications** — the bell opens a small dropdown that just says "Coming soon." No fake unread badges anywhere in the top bar.
+- **Event registration & the event-linked discussion space** — Events is listing-only. The Register button is disabled and shows "Registration — coming soon" instead of doing anything. The backend for this (`register_for_event()` RPC, `event_registrations` table, `handleRegisterEvent`/`handleOpenEventCommunity` in `App.jsx`) is still fully built and working — it's just not wired to the UI right now. Re-enabling it later is a matter of passing `onRegister`/`onOpenCommunity`/`registeredEventIds` back into `<EventsScreen>` instead of `onComingSoon`.
 
-**Locali-Tea's 48-hour expiry is client-side filtering, not deletion** (`utils/helpers.js`: `TEA_LIFESPAN_MS`, `isTeaExpired`, `teaTimeLeft`) — expired posts are simply filtered out of the rendered list; they still sit in memory. The Firebase plan (§5) uses Firestore's native TTL policy on an `expiresAt` field — no cron job needed — but deletion isn't instant (Google documents "typically within 24 hours"), so the client-side filter-on-read stays in place as a display safeguard even after the backend is live.
+**Still genuinely mock / unfinished:**
+- **Reports** — `ReportModal` submits to `handleReportSubmit` in `App.jsx`, which currently only `console.log`s and shows a toast; nothing is persisted to a `reports` table yet. Left as-is (not gated) since it's a safety feature, not something that misleads a tester.
+- **Photo attachments on community posts** — the camera button in the Posts composer sets a `has_image` flag and shows a placeholder icon; there's no real image upload (no Supabase Storage bucket wired up). The flag is real and persists, the image itself isn't.
 
-**Community members and posts are fabricated, not real** (important) — `Community.jsx`'s `genMembers()` (in `utils/helpers.js`) deterministically generates a fake member list from a static 24-name pool (`NAME_POOL`) based on the community's `id` and its `members` count; it is **not** a real membership list and resets differently every time you view a different community. Likewise, the posts feed and group chat messages shown inside a community are seeded with 2-3 hardcoded entries **inside `Community.jsx` itself** — they are not passed down from `App.jsx`'s state, so they reset every time you navigate away and back. A real backend needs actual `communities/{id}/members/{uid}` and `communities/{id}/messages/{msgId}` collections, plus a real posts source (see §8) — none of what's currently rendered in a community's Members/Posts/Chat tabs reflects real data.
+**What changed from the previous pass:** community posts, sparks, pins, in-community chat, the member list, and all of Locali-Tea (posts/votes/comments) are now fully real per §5 — previously the two biggest fabricated pieces (`genMembers()` fake names, and Locali-Tea's entirely local `MOCK_TEA` state) are gone. The domain lock came off too, so sign-in works with any email. What's left mock or gated is now narrow and deliberate: DMs, notifications, and event registration, plus the small reports/photo-upload gaps above.
 
-**"Trending" and "matched to your interests" are pure client-side scoring**, not personalization from a backend: `communityTrendScore()` = `members*0.4 + sparks*2 - lastActive*0.6`, and `interestMatchCount()` just counts overlap between a community's `tags` and the user's `interests`. These are cheap to keep as-is or move server-side once real usage data (join events, activity) exists.
+The loop worth testing with 200 people: verify with any email, see real communities/clubs, join/leave/create them, post and chat inside them with real people, spill (and read) real anonymous Locali-Tea gossip that actually expires after 48h, and browse real events.
 
-**"Sparks"** (the flame/interest counter on communities and posts) is not a real counter either — `baseSparks()` derives a plausible-looking number from `members * 0.55`, and the local "spark" toggle just adds/subtracts 1 visually. There's no real per-user interest signal being recorded.
+## 8. Building the Android APK
 
-**Handles** (`handleFor()` in `utils/helpers.js`) are generated client-side by slugifying the name + appending the numeric id (e.g. `dsa-grinders-6am-batch-14`) — fine as a *display* fallback, but the backend should own uniqueness enforcement at creation time (per `SPEC.md` §6), since two communities could otherwise collide or a renamed community would change its handle.
+This repo includes a ready-to-open Capacitor Android project (`android/`) — do this on a machine with **Android Studio** installed:
 
-## 8. Planned backend stack (Firebase)
+1. Make sure `.env` has real Supabase values (§2), then:
+   ```bash
+   npm install
+   npm run build           # builds the web app into dist/
+   npx cap sync android    # copies the new build into the native project
+   ```
+2. Open the `android/` folder as a project in Android Studio (not the repo root — specifically the `android` subfolder). Let Gradle sync finish (first time can take a few minutes).
+3. **Build → Generate Signed Bundle / APK…** → choose **APK**.
+4. **Create new…** keystore if you don't have one yet — pick a folder, a keystore password, a key alias, and a key password. **Save these somewhere safe** — you'll need the same keystore to release updates later without breaking installs for anyone who already installed the app.
+5. Choose the **release** build variant, finish the wizard.
+6. Android Studio will show a "locate" link when the build finishes, or find it at `android/app/release/app-release.apk`.
+7. Share that `.apk` file directly (Drive link, WhatsApp, etc.) with your 200 testers. Since it's not from the Play Store, each tester needs to allow **"Install unknown apps"** for whatever app they downloaded it through (Android will prompt them automatically on first install attempt).
 
-`BACKEND_ARCHITECTURE_FIREBASE.docx` (full doc in this repo) is **the current backend plan** — it replaced an earlier Supabase-based proposal (`BACKEND_ARCHITECTURE.docx`, still in the repo but superseded). It proposes an all-Firebase stack: **Firestore** (data), **Firebase Authentication** + a custom Cloud Function OTP layer (identity — see §7 above), **Cloud Functions** (server logic), **Cloud Storage for Firebase** (media), **Firebase Cloud Messaging** (push), **Firebase Hosting** (deploys the existing Vite build as-is).
+**Not done yet, optional polish if there's time before sharing:** the app icon is still Capacitor's default. `npx @capacitor/assets generate` can regenerate all icon sizes from a single source image (e.g. `public/favicon.svg`) — worth doing if there's an extra 30 minutes, not worth blocking the launch on.
 
-Key points a backend dev should know before reading the full doc:
-- **Firestore is a document database, not relational** — no `JOIN`s. The schema embeds data where a join would otherwise be needed (e.g. Locali-Tea comments/votes live *inside* the post document, not a subcollection — see below) or duplicates it (a community's member count is stored on the community doc, not computed by counting).
-- **Core collections**: `users/{uid}`, `communities/{id}` (with `members/{uid}` and `messages/{msgId}` subcollections), `events/{id}` (with `registrations/{uid}`), `dm_threads/{threadId}` (with `messages/{msgId}`), `chat_requests/{id}`, `users/{uid}/notifications/{id}`, `reports/{id}`, `tea_posts/{id}`.
-- **Locali-Tea posts are deliberately denormalized**: comments and votes are embedded directly on the `tea_posts/{id}` document (not a subcollection) specifically so Firestore's native TTL deletion removes the whole post — including every comment — in one shot. If they were modeled as a subcollection, the parent would expire on schedule but the comments would silently become permanent orphaned documents.
-- **Security Rules** (`firestore.rules`) are the access-control layer — the Firebase equivalent of Supabase's Postgres RLS. Custom claims (`verified`, `admin`, `clubAdmin:{communityId}`) are set server-side only, via the Admin SDK.
-- **Events → community linkage** is a Cloud Function `onCreate` trigger on `events/{id}/registrations/{uid}`, run inside a Firestore transaction so two simultaneous first-registrations can't create duplicate event communities.
-- **Realtime chat/notifications** use Firestore's `onSnapshot` listeners directly — no separate WebSocket service needed. Cost caveat: every open listener re-bills a read per changed document, so chat screens must unsubscribe on unmount and paginate with `limitToLast`.
-- **Scaling budget**: Spark (free) tier covers local dev, but Cloud Functions requires the pay-as-you-go **Blaze** tier — needed anyway since the OTP flow depends on Cloud Functions, so Blaze is a day-one requirement, not something deferrable. At a ~10,000-student ceiling, expect a low-hundreds-of-dollars-a-month ceiling, not a cliff. Set a Cloud Billing budget alert on day one.
-- **5-phase rollout**: (1) Foundation — project setup, custom-OTP auth, core collections wired to this frontend, Security Rules v1; (2) Core social — community/club chat, DMs, Locali-Tea + TTL; (3) Events — registration + auto-community-creation trigger; (4) Media & push — Cloud Storage, FCM; (5) Hardening — App Check, budget alerts, load-test chat listeners, moderation console.
+## 9. Design system reference
 
-Read the full document for exact field-level schemas, the OTP Cloud Function sequence, and Security Rules examples — this section is a pointer, not a replacement for it.
+Custom animation/utility classes live in `tailwind.config.js` (keyframes) and `src/index.css` (`.no-scrollbar`, `.mono`, `.glass`, `.skeleton-shimmer`, `.stagger-1`–`.stagger-8`).
 
-## 9. What's not implemented — backend TODO checklist
+## 10. Testing-phase notice
 
-- [ ] Real auth: Firebase Auth + custom `requestOtp`/`verifyOtp` Cloud Functions with server-side domain re-check + session issuance (replaces the fake Onboarding flow in §7 — see Firebase doc §3)
-- [ ] Firestore collections for communities, clubs, events, posts, community chat messages, DMs, notifications, reports (all currently in-memory only, lost on refresh — see Firebase doc §4 for exact shapes)
-- [ ] Real community membership (`communities/{id}/members/{uid}`) — replaces the fabricated `genMembers()` output
-- [ ] Realtime delivery for community chat and DMs via Firestore `onSnapshot` listeners (currently: messages exist only in that one browser tab's state)
-- [ ] Push notifications via Firebase Cloud Messaging (the notification bell is 4 hardcoded mock rows)
-- [ ] Moderation queue — `ReportModal`'s selected reason now reaches `App.jsx`'s `handleReportSubmit(reason)` (logged via `console.log` as a placeholder), but it's still just a toast, not persisted anywhere. Needs a real `reports/{id}` collection + Security Rules (write-only for regular users, read-only for admins).
-- [ ] Server-enforced unique handles for communities/clubs, generated/validated server-side instead of the client-side slug in `handleFor()`
-- [ ] Event → community linkage as a Cloud Function `onCreate` trigger + Firestore transaction (register for event ⇒ create/find linked community + add membership), per Firebase doc §6
-- [ ] Locali-Tea expiry via Firestore's native TTL policy on `expiresAt`, with comments/votes embedded on the post doc (not a subcollection) so TTL deletes them too — per Firebase doc §5. Client-side filter-on-read stays as a display safeguard since TTL deletion isn't instant.
-- [ ] Firestore Security Rules + custom claims (`verified`, `admin`, `clubAdmin:{communityId}`) — the access-control layer, equivalent to what RLS would do on a relational DB
-- [ ] App Check enabled before public launch (Firebase doc §10) — without it, Cloud Functions endpoints are callable by anyone who finds the URL
-- [ ] Clubs data source is an **open question** per `SPEC.md`: will official club info be entered by an admin, or supplied by the college? This affects whether an admin/moderation screen for clubs is needed at launch.
+Since this build goes out to ~200 known testers rather than the public, that's made explicit instead of pretending it's a finished app: a small amber "Testing phase" pill next to the logo plus a one-line disclaimer ("You're using an early beta of Orbit — things may break or change"), visible on every onboarding step (`Onboarding.jsx`).
 
-## 10. Design system reference
+**Exit review prompt — built, then intentionally disconnected.** An earlier pass added an optional star-rating + feedback sheet shown on the Android hardware back button before the app exits, backed by a real `app_reviews` table. Per a later product call, it's not needed — the code was removed from the active flow (`App.jsx`'s `backButton` listener now just closes overlays and exits, no prompt in between), but `ReviewPrompt.jsx` and `supabase/schema_reviews.sql` are still in the repo if this gets revisited later. The back button still closes whatever's open first (community detail, search, Locali-Tea, notifications dropdown, report modal), same as tapping that screen's own back/close button — that part's unrelated to the review prompt and stayed.
 
-Custom animation/utility classes live in `tailwind.config.js` (keyframes) and `src/index.css` (`.no-scrollbar`, `.mono`, `.glass`, `.skeleton-shimmer`, stagger classes `.stagger-1`–`.stagger-8`). Not backend-relevant, but useful context if you end up touching any component markup while wiring up real data.
+**After `npm install`**, run `npx cap sync android` again before your next APK build so the `@capacitor/app` plugin (used for the back-button handling above) gets linked into the native project.

@@ -20,15 +20,31 @@ export function communityTrendScore(c) {
   return c.members * 0.4 + baseSparks(c) * 2 - c.lastActive * 0.6;
 }
 
-// Turns a display name into a unique-ish @handle for community/club pages
-// and their QR codes — e.g. "DSA Grinders — 6AM Batch" -> "dsa-grinders-6am-batch".
-export function handleFor(name, id) {
-  const slug = name
+// Turns a display name into a URL-safe slug — shared by handleFor() below
+// and by App.jsx when it needs to generate a @handle client-side before a
+// community row (and its DB-assigned id) exists yet.
+export function slugify(name) {
+  return name
     .toLowerCase()
     .replace(/&/g, "and")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return `${slug}-${id}`;
+}
+
+// Turns a display name into a unique-ish @handle for community/club pages
+// and their QR codes — e.g. "DSA Grinders — 6AM Batch" -> "dsa-grinders-6am-batch".
+export function handleFor(name, id) {
+  return `${slugify(name)}-${id}`;
+}
+
+// Stable numeric hash for a string id — Supabase rows use uuid string ids,
+// so anything that used to do `id % N` (fine for the old numeric mock ids)
+// needs this instead, or it silently produces NaN.
+export function hashId(id) {
+  const s = String(id);
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
 }
 
 // Locali-Tea: every post self-destructs 48h after posting, comments included.
@@ -49,10 +65,11 @@ export function teaTimeLeft(createdAt) {
 
 export function genMembers(c) {
   const total = Math.max(1, c.members);
-  const creatorName = c.creator === "You" ? "You" : NAME_POOL[c.id % NAME_POOL.length];
+  const idNum = hashId(c.id);
+  const creatorName = c.creator === "You" ? "You" : NAME_POOL[idNum % NAME_POOL.length];
   const others = [];
   for (let i = 0; i < Math.min(total - 1, 24); i++) {
-    const base = NAME_POOL[(c.id + i * 3) % NAME_POOL.length];
+    const base = NAME_POOL[(idNum + i * 3) % NAME_POOL.length];
     others.push(i >= NAME_POOL.length ? `${base} ${i}` : base);
   }
   return { creatorName, others, total };

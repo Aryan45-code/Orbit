@@ -1,35 +1,89 @@
 import { useState } from "react";
-import { Check, ChevronLeft, ArrowRight, GraduationCap } from "lucide-react";
+import { Check, ChevronLeft, ArrowRight, Mail } from "lucide-react";
 import { CATEGORIES, COLOR_MAP, ONBOARDING_STEPS } from "../data/constants.js";
 import { Logo, AuroraBackground } from "./Common.jsx";
+import { supabase } from "../lib/supabaseClient.js";
 
-const COLLEGE_EMAIL_DOMAIN = "muj.manipal.edu";
+// This beta build accepts any email (personal/private included) — the
+// earlier @muj.manipal.edu-only domain lock (both this client check and the
+// enforce_muj_email_domain_trigger in the database) was intentionally
+// removed for the first 200-person test round, since campus-mail deliverability
+// couldn't be fixed in time. See supabase/drop_domain_lock.sql.
+const emailValid = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
-// Only the local part (before @) is ever typed by the user — the domain is
-// fixed and appended automatically, so there's no way to enter a non-Manipal
-// email at all.
-const localPartValid = (v) => /^[a-zA-Z0-9._%+-]+$/.test(v.trim());
+// Supabase's email-OTP flow sends a numeric code via {{ .Token }} (configured
+// in the Supabase Dashboard's "Confirm signup" + "Magic Link" email templates
+// — see README/Supabase setup notes). This project's Supabase instance
+// generates an 8-digit code (confirmed against a real received email) —
+// not the 6-digit length Supabase defaults to in some setups, so this is
+// NOT hardcoded from docs, it's set to match what this project actually sends.
+const OTP_LENGTH = 8;
 
 export function Onboarding({ onDone, onGuest }) {
   const [step, setStep] = useState("contact");
-  const [emailLocal, setEmailLocal] = useState("");
+  const [email, setEmail] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
   const [name, setName] = useState("");
   const [interests, setInterests] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
   const toggleInterest = (catName) => {
     setInterests((cur) => cur.includes(catName) ? cur.filter((x) => x !== catName) : [...cur, catName]);
   };
   const stepIndex = ONBOARDING_STEPS.indexOf(step);
-  const emailLooksValid = emailLocal.trim().length > 1 && localPartValid(emailLocal);
-  const email = `${emailLocal.trim()}@${COLLEGE_EMAIL_DOMAIN}`;
+  const emailLooksValid = emailValid(email);
+  const trimmedEmail = email.trim();
+
+  const sendOtp = async () => {
+    setLoading(true);
+    setErrorMsg("");
+    const { error } = await supabase.auth.signInWithOtp({
+      email: trimmedEmail,
+      options: { shouldCreateUser: true },
+    });
+    setLoading(false);
+    if (error) {
+      setErrorMsg(error.message || "Couldn't send the code. Try again.");
+      return;
+    }
+    setOtpSent(true);
+  };
+
+  const verifyOtp = async () => {
+    setLoading(true);
+    setErrorMsg("");
+    const { error } = await supabase.auth.verifyOtp({ email: trimmedEmail, token: otp, type: "email" });
+    setLoading(false);
+    if (error) {
+      setErrorMsg(error.message || "That code didn't work. Check it and try again.");
+      return;
+    }
+    setStep("profile");
+  };
+
+  const finishProfile = async (finalName, finalInterests) => {
+    setLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      await supabase.from("profiles").update({ name: finalName, interests: finalInterests }).eq("id", session.user.id);
+    }
+    setLoading(false);
+    onDone(finalName, finalInterests);
+  };
+
   return (
     <div className="relative flex-1 flex flex-col px-7 pt-9 pb-8 min-h-0 overflow-hidden">
       <AuroraBackground />
       <div className="relative z-10 flex-1 flex flex-col min-h-0">
       <div className="flex items-center justify-between animate-fade-in-up shrink-0">
         <Logo size="text-2xl" />
+        <span className="text-[10px] font-semibold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-full">Testing phase</span>
       </div>
+      <p className="text-[11px] text-zinc-500 mt-2 animate-fade-in-up shrink-0">
+        You're using an early beta of Orbit — things may break or change. Thanks for helping test it.
+      </p>
       <div className="flex items-center gap-1.5 mt-6 mb-8 animate-fade-in-up stagger-1 shrink-0">
         {ONBOARDING_STEPS.map((s, i) => (
           <span key={s} className={`h-1 rounded-full transition-all duration-300 ${i === stepIndex ? "w-7 bg-violet-400 shadow-[0_0_8px_rgba(96,165,250,0.6)]" : i < stepIndex ? "w-4 bg-violet-400/40" : "w-4 bg-zinc-800"}`} />
@@ -44,8 +98,9 @@ export function Onboarding({ onDone, onGuest }) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!otpSent) { if (emailLooksValid) setOtpSent(true); }
-            else if (otp.length >= 4) setStep("profile");
+            if (loading) return;
+            if (!otpSent) { if (emailLooksValid) sendOtp(); }
+            else if (otp.length >= OTP_LENGTH) verifyOtp();
           }}
           className="flex-1 flex flex-col min-h-0"
         >
@@ -54,37 +109,49 @@ export function Onboarding({ onDone, onGuest }) {
               Let's get you in
             </p>
             <div className={`flex items-center gap-2 bg-zinc-900/80 border rounded-xl px-3.5 py-3 transition-colors animate-fade-in-up stagger-3 ${otpSent ? "border-zinc-800 opacity-60" : "border-zinc-800 focus-within:border-violet-500 focus-within:ring-1 focus-within:ring-violet-500/30"}`}>
-              <GraduationCap size={16} className="text-zinc-500 shrink-0" />
+              <Mail size={16} className="text-zinc-500 shrink-0" />
               <input
-                value={emailLocal}
-                onChange={(e) => setEmailLocal(e.target.value.replace(/[^a-zA-Z0-9._%+-]/g, ""))}
-                placeholder="yourname"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@email.com"
+                type="email"
                 inputMode="email"
                 autoCapitalize="none"
                 autoCorrect="off"
                 disabled={otpSent}
                 className="flex-1 min-w-0 bg-transparent text-zinc-100 placeholder-zinc-600 text-sm outline-none disabled:cursor-not-allowed"
               />
-              <span className="text-sm text-zinc-500 shrink-0">@{COLLEGE_EMAIL_DOMAIN}</span>
               {otpSent && (
-                <button type="button" onClick={() => { setOtpSent(false); setOtp(""); }} className="text-xs text-violet-400 font-medium shrink-0">Change</button>
+                <button type="button" onClick={() => { setOtpSent(false); setOtp(""); setErrorMsg(""); }} className="text-xs text-violet-400 font-medium shrink-0">Change</button>
               )}
             </div>
             {otpSent && (
               <div className="mt-4 animate-fade-in-up">
-                <p className="text-sm text-zinc-500 mb-3">Enter the OTP sent to <span className="text-zinc-300">{email}</span>. (Prototype: any 4 digits work.)</p>
-                <input value={otp} onChange={(e) => setOtp(e.target.value.slice(0, 4))} placeholder="0000" autoFocus className="w-full bg-zinc-900/80 border border-zinc-800 text-zinc-100 rounded-xl px-3.5 py-4 text-sm tracking-[0.6em] text-center text-2xl outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 mono transition-colors" />
-                <p className="text-xs text-zinc-500 text-center mt-3">Didn't get a code? <span className="text-violet-400 font-medium">Resend OTP</span></p>
+                <p className="text-sm text-zinc-500 mb-3">Enter the {OTP_LENGTH}-digit code sent to <span className="text-zinc-300">{trimmedEmail}</span>.</p>
+                <input
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH))}
+                  placeholder={"0".repeat(OTP_LENGTH)}
+                  inputMode="numeric"
+                  autoFocus
+                  className="w-full bg-zinc-900/80 border border-zinc-800 text-zinc-100 rounded-xl px-3.5 py-4 text-sm tracking-[0.5em] text-center text-2xl outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 mono transition-colors"
+                />
+                <button type="button" onClick={sendOtp} disabled={loading} className="text-xs text-zinc-500 text-center mt-3 w-full disabled:opacity-50">
+                  Didn't get a code? <span className="text-violet-400 font-medium">Resend OTP</span>
+                </button>
               </div>
+            )}
+            {errorMsg && (
+              <p className="text-xs text-rose-400 mt-3 animate-fade-in-up">{errorMsg}</p>
             )}
           </div>
           <div className="shrink-0 pt-4">
             <button
               type="submit"
-              disabled={otpSent ? otp.length < 4 : !emailLooksValid}
+              disabled={loading || (otpSent ? otp.length < OTP_LENGTH : !emailLooksValid)}
               className="w-full py-3 rounded-xl bg-violet-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 text-sm font-semibold shadow-lg shadow-violet-500/20 disabled:shadow-none active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 animate-fade-in-up stagger-4"
             >
-              {otpSent ? "Verify" : <>Send OTP <ArrowRight size={15} /></>}
+              {loading ? "Please wait…" : otpSent ? "Verify" : <>Send OTP <ArrowRight size={15} /></>}
             </button>
             <button type="button" onClick={onGuest} className="w-full text-xs text-zinc-500 underline underline-offset-2 mt-4 animate-fade-in-up stagger-6">Browse first, verify later</button>
           </div>
@@ -92,17 +159,17 @@ export function Onboarding({ onDone, onGuest }) {
       )}
       {step === "profile" && (
         <form
-          onSubmit={(e) => { e.preventDefault(); if (name.trim()) onDone(name.trim(), interests); }}
+          onSubmit={(e) => { e.preventDefault(); if (name.trim() && !loading) finishProfile(name.trim(), interests); }}
           className="flex-1 flex flex-col min-h-0 animate-fade-in-up"
         >
           <div className="flex-1 overflow-y-auto no-scrollbar">
             <button type="button" onClick={() => setStep("contact")} className="text-xs text-zinc-500 flex items-center gap-1 mb-3 -mt-1 w-fit"><ChevronLeft size={14} />Back</button>
             <p className="font-semibold text-zinc-100 mb-1 text-2xl" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Set up your profile</p>
-            <p className="text-sm text-zinc-500 mb-5">Just the basics — you're set up as a Manipal Jaipur student.</p>
+            <p className="text-sm text-zinc-500 mb-5">Just the basics to get you set up.</p>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className="w-full bg-zinc-900/80 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-xl px-3.5 py-2.5 text-sm mb-5 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors" />
             <div className="flex items-center justify-between mb-1">
               <p className="text-sm text-zinc-300 font-medium">What are you into?</p>
-              <button type="button" onClick={() => onDone(name.trim(), [])} disabled={!name.trim()} className="text-xs text-violet-400 font-medium disabled:text-zinc-600">Skip — show me everything</button>
+              <button type="button" onClick={() => finishProfile(name.trim(), [])} disabled={!name.trim() || loading} className="text-xs text-violet-400 font-medium disabled:text-zinc-600">Skip — show me everything</button>
             </div>
             <p className="text-xs text-zinc-500 mb-3">Pick as many as you like — we'll personalize your home feed. Or skip to see all communities and clubs.</p>
             <div className="grid grid-cols-2 gap-2">
@@ -126,7 +193,9 @@ export function Onboarding({ onDone, onGuest }) {
             </div>
           </div>
           <div className="shrink-0 pt-4">
-            <button type="submit" disabled={!name.trim()} className="w-full py-3 rounded-xl bg-violet-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 text-sm font-semibold shadow-lg shadow-violet-500/20 disabled:shadow-none active:scale-[0.98] transition-all">Enter Orbit</button>
+            <button type="submit" disabled={!name.trim() || loading} className="w-full py-3 rounded-xl bg-violet-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 text-sm font-semibold shadow-lg shadow-violet-500/20 disabled:shadow-none active:scale-[0.98] transition-all">
+              {loading ? "Please wait…" : "Enter Orbit"}
+            </button>
           </div>
         </form>
       )}

@@ -5,3 +5,16 @@ dist
 vite.config.js.timestamp-*.mjs
 *.local
 .claude/
+dev-*.log
+
+# Android / Capacitor build artifacts — keep the android/ project structure
+# in git, but not machine-specific build output or local SDK paths.
+android/app/build
+android/build
+android/.gradle
+android/local.properties
+android/captures
+android/*.iml
+android/.idea
+*.keystore
+*.jks
