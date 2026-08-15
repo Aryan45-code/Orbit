@@ -30,10 +30,11 @@ export function CommunitySettings({ c, onSave, onDelete, onClose }) {
           <input
             value={name} onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") save(); }}
+            maxLength={80}
             className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm mb-4 outline-none focus:border-violet-500"
           />
           <p className="text-xs text-zinc-500 mb-1.5">Description</p>
-          <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm mb-4 outline-none focus:border-violet-500" />
+          <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} maxLength={800} className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm mb-4 outline-none focus:border-violet-500" />
           <p className="text-xs text-zinc-500 mb-1.5">Category</p>
           <div className="grid grid-cols-2 gap-2 mb-6">
             {CATEGORIES.map((cat) => {
@@ -303,6 +304,23 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
     setChatMessages((ms) => ms.map((m) => (m.id === message.id ? { ...m, pinned: nextPinned } : currentlyPinned && m.id === currentlyPinned.id ? { ...m, pinned: false } : m)));
   };
 
+  // Was a dead button (no handler at all) — now a real delete, backed by the
+  // "community creator can remove a member" policy in
+  // schema_security_hardening.sql. Optimistic + rollback, same pattern as
+  // the rest of this file.
+  const removeMember = async (member) => {
+    if (!isAdmin) return;
+    setMembers((ms) => ms.filter((m) => m.userId !== member.userId));
+    const { error } = await supabase
+      .from("community_members")
+      .delete()
+      .eq("community_id", c.id)
+      .eq("user_id", member.userId);
+    if (error) {
+      setMembers((ms) => [...ms, member]);
+    }
+  };
+
   const sendChat = async () => {
     const t = chatDraft.trim();
     if (!t || !authUserId) return;
@@ -449,6 +467,7 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
                     sendChat();
                   }}
                   placeholder="Message the group"
+                  maxLength={1000}
                   className="flex-1 bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-full px-4 py-2 text-sm outline-none focus:border-violet-500"
                 />
                 <button
@@ -476,6 +495,7 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
                   value={draft} onChange={(e) => setDraft(e.target.value)}
                   placeholder="Share something with the community..."
                   rows={2}
+                  maxLength={2000}
                   className="w-full bg-transparent text-zinc-100 placeholder-zinc-600 text-sm outline-none resize-none"
                 />
                 {attaching && (
@@ -561,7 +581,7 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
                       </p>
                     </div>
                     {isAdmin && m.role !== "Creator" && (
-                      <button className="text-[11px] text-zinc-500 hover:text-rose-400 shrink-0">Remove</button>
+                      <button onClick={() => removeMember(m)} className="text-[11px] text-zinc-500 hover:text-rose-400 shrink-0">Remove</button>
                     )}
                   </div>
                 );

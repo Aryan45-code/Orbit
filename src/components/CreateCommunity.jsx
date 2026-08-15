@@ -69,8 +69,8 @@ export function CreateCommunity({ onCreate, onClose, verified, onBlocked, onVeri
                   <button type="button" onClick={() => setStep(1)} className="text-xs text-zinc-500 flex items-center gap-1 mb-3"><ChevronLeft size={14} />Back</button>
                   <p className="font-bold text-zinc-50 text-lg mb-1">Name it</p>
                   <p className="text-sm text-zinc-500 mb-4">Freeform — make it sound like something people would actually tap on.</p>
-                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sunday Football League" className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-xl px-3.5 py-2.5 text-sm mb-3 outline-none focus:border-violet-500" />
-                  <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Short description (optional)" rows={3} className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-violet-500" />
+                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sunday Football League" maxLength={80} className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-xl px-3.5 py-2.5 text-sm mb-3 outline-none focus:border-violet-500" />
+                  <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Short description (optional)" rows={3} maxLength={800} className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-violet-500" />
                 </div>
                 <div className="shrink-0 pt-4">
                   <button type="submit" disabled={!name.trim()} className="w-full py-2.5 rounded-xl bg-violet-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 text-sm font-semibold">Continue</button>

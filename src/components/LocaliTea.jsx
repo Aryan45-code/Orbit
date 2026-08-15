@@ -134,6 +134,7 @@ function TeaDetail({ t, onBack, onValidate, myVote, onReact, myReaction, onComme
             value={draft} onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && draft.trim()) { onComment(t.id, draft.trim()); setDraft(""); } }}
             placeholder="Add to the discussion, anonymously"
+            maxLength={1000}
             className="flex-1 bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-full px-4 py-2 text-sm outline-none focus:border-violet-500"
           />
           <button
@@ -198,6 +199,7 @@ export function LocaliTeaScreen({ teaPosts, onClose, verified, onBlocked, onPost
                 value={draft} onChange={(e) => setDraft(e.target.value)}
                 placeholder={tab === "tea" ? "Spill the tea… posted anonymously, auto-deletes in 48h" : "Get it off your chest… posted anonymously, auto-deletes in 48h"}
                 rows={2}
+                maxLength={2000}
                 className="w-full bg-transparent text-zinc-100 placeholder-zinc-600 text-sm outline-none resize-none"
               />
               <div className="flex justify-end mt-1.5">

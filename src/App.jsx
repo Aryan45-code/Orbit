@@ -269,11 +269,17 @@ export default function App() {
     showToast(error ? "Delete failed — refresh and retry" : "Deleted");
   };
 
-  const handleReportSubmit = (reason) => {
-    console.log("Report submitted", { target: reportTarget, reason });
+  // Previously this only console.log'd — nothing was ever saved, so reports
+  // silently vanished even though the UI said "submitted for review." Now a
+  // real row in public.reports (supabase/schema_security_hardening.sql);
+  // view submissions from the Supabase dashboard.
+  const handleReportSubmit = async (reason) => {
+    const target = reportTarget;
     setReportTarget(null);
     setSelectedCommunity(null);
     showToast("Report submitted for review");
+    if (!authUser) return;
+    await supabase.from("reports").insert({ reporter_id: authUser.id, target: String(target), reason });
   };
 
   // Registering for an event is the access gate to its community — the

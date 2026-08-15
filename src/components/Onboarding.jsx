@@ -166,7 +166,7 @@ export function Onboarding({ onDone, onGuest }) {
             <button type="button" onClick={() => setStep("contact")} className="text-xs text-zinc-500 flex items-center gap-1 mb-3 -mt-1 w-fit"><ChevronLeft size={14} />Back</button>
             <p className="font-semibold text-zinc-100 mb-1 text-2xl" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Set up your profile</p>
             <p className="text-sm text-zinc-500 mb-5">Just the basics to get you set up.</p>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className="w-full bg-zinc-900/80 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-xl px-3.5 py-2.5 text-sm mb-5 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors" />
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" maxLength={60} className="w-full bg-zinc-900/80 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-xl px-3.5 py-2.5 text-sm mb-5 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors" />
             <div className="flex items-center justify-between mb-1">
               <p className="text-sm text-zinc-300 font-medium">What are you into?</p>
               <button type="button" onClick={() => finishProfile(name.trim(), [])} disabled={!name.trim() || loading} className="text-xs text-violet-400 font-medium disabled:text-zinc-600">Skip — show me everything</button>
