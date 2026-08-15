@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Plus, Users, Flame, TrendingUp, Megaphone, Compass } from "lucide-react";
-import { CATEGORIES, COLOR_MAP, MOCK_ADS } from "../data/constants.js";
+import { Plus, Users, Flame, TrendingUp, Compass } from "lucide-react";
+import { CATEGORIES, COLOR_MAP } from "../data/constants.js";
 import { interestMatchCount, baseSparks, communityTrendScore } from "../utils/helpers.js";
 import { SkeletonFeed, SkeletonStory } from "./Skeleton.jsx";
 import { EmptyState } from "./EmptyState.jsx";
@@ -29,11 +29,15 @@ export function CommunityStories({ communities, joinedIds, onOpen, onCreateClick
           const isLive = c.lastActive <= 10;
           return (
             <button key={c.id} onClick={() => onOpen(c)} className="flex flex-col items-center gap-1.5 w-16 shrink-0">
-              <div className={`rounded-full p-[2.5px] shrink-0 ${isLive ? "bg-gradient-to-br from-violet-400 to-emerald-400" : "bg-gradient-to-br from-zinc-600 to-zinc-700"}`}>
+              <div className={`rounded-full p-[2.5px] shrink-0 ${c.avatarUrl ? "bg-gradient-to-br from-fuchsia-400 to-violet-400" : isLive ? "bg-gradient-to-br from-violet-400 to-emerald-400" : "bg-gradient-to-br from-zinc-600 to-zinc-700"}`}>
                 <div className="bg-zinc-950 rounded-full p-[2px]">
-                  <div className={`${COLOR_MAP[cat.color].tint} ${COLOR_MAP[cat.color].text} rounded-full w-12 h-12 flex items-center justify-center`}>
-                    <cat.icon size={19} />
-                  </div>
+                  {c.avatarUrl ? (
+                    <img src={c.avatarUrl} alt="" className="rounded-full w-12 h-12 object-cover" />
+                  ) : (
+                    <div className={`${COLOR_MAP[cat.color].tint} ${COLOR_MAP[cat.color].text} rounded-full w-12 h-12 flex items-center justify-center`}>
+                      <cat.icon size={19} />
+                    </div>
+                  )}
                 </div>
               </div>
               <p className="text-[10px] text-zinc-400 text-center leading-tight line-clamp-2">{c.name.split(" — ")[0]}</p>
@@ -44,23 +48,6 @@ export function CommunityStories({ communities, joinedIds, onOpen, onCreateClick
           <p className="text-xs text-zinc-600 self-center py-2">Join a community to see it here.</p>
         )}
       </div>
-    </div>
-  );
-}
-
-export function AdCard({ ad }) {
-  const cm = COLOR_MAP[ad.color];
-  return (
-    <div className="bg-zinc-900 rounded-2xl border border-zinc-800 p-3.5 flex items-center gap-3">
-      <div className={`${cm.tint} ${cm.text} w-11 h-11 rounded-xl flex items-center justify-center shrink-0`}>
-        <Megaphone size={18} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide mb-0.5">Sponsored</p>
-        <p className="text-sm font-medium text-zinc-100 leading-snug truncate">{ad.title}</p>
-        <p className="text-xs text-zinc-500 truncate">{ad.subtitle}</p>
-      </div>
-      <span className={`${cm.text} text-[11px] font-semibold shrink-0`}>{ad.cta}</span>
     </div>
   );
 }
@@ -79,8 +66,8 @@ export function CommunityCard({ c, joined, onOpen, sparked, onSpark, trendRank, 
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(c); } }}
       className={`animate-fade-in-up stagger-${Math.min((index % 8) + 1, 8)} w-full text-left bg-zinc-900 rounded-2xl border border-zinc-800 hover:border-zinc-700 hover:shadow-lg hover:shadow-black/20 hover:-translate-y-0.5 active:scale-[0.99] transition-all duration-200 p-3.5 flex gap-3 cursor-pointer`}
     >
-      <div className={`${cm.tint} ${cm.text} w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 relative ring-1 ring-white/5`}>
-        <Icon size={20} />
+      <div className={`${cm.tint} ${cm.text} w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 relative ring-1 ring-white/5 overflow-hidden`}>
+        {c.avatarUrl ? <img src={c.avatarUrl} alt="" className="w-full h-full object-cover" /> : <Icon size={20} />}
         {isLive && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 ring-2 ring-zinc-900 animate-pulse" />}
       </div>
       <div className="flex-1 min-w-0">
@@ -210,7 +197,6 @@ export function HomeScreen({ communities, joinedIds, onOpen, filterCat, setFilte
                       ))}
                     </div>
                   </div>
-                  {i === 0 && <AdCard ad={MOCK_ADS[0]} />}
                 </React.Fragment>
               ))}
             </>

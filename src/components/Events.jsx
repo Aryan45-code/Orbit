@@ -1,13 +1,12 @@
 import React from "react";
-import { CalendarDays, Clock, MapPin, Users, Check, ArrowRight } from "lucide-react";
-import { CATEGORIES, COLOR_MAP, MOCK_ADS } from "../data/constants.js";
+import { CalendarDays, Clock, MapPin, Users, Lock } from "lucide-react";
+import { CATEGORIES, COLOR_MAP } from "../data/constants.js";
 import { EmptyState } from "./EmptyState.jsx";
-import { AdCard } from "./Home.jsx";
 
-// Registration, listing, and community access are one flow here: registering
-// for an event immediately grants access to that event's linked community
-// (handled in App.jsx's handleRegisterEvent) — no separate "join" step.
-function EventCard({ e, registered, interests, onRegister, onOpenCommunity, index = 0 }) {
+// Events is listing-only for this launch — registration (and the discussion
+// space it used to unlock) is Coming soon, not wired to anything. Listing
+// itself is still real Supabase data (see App.jsx).
+function EventCard({ e, interests, onComingSoon, index = 0 }) {
   const cat = CATEGORIES.find((x) => x.name === e.category);
   const cm = COLOR_MAP[cat.color];
   const isMatch = interests && interests.includes(e.category);
@@ -27,21 +26,15 @@ function EventCard({ e, registered, interests, onRegister, onOpenCommunity, inde
           <span className="flex items-center gap-1"><MapPin size={12} />{e.where}</span>
           <span className="flex items-center gap-1 mono"><Users size={12} />{e.capacity} spots</span>
         </div>
-        {registered ? (
-          <button onClick={() => onOpenCommunity(e)} className="w-full mt-3 py-2 rounded-xl bg-zinc-800 text-emerald-400 text-xs font-semibold flex items-center justify-center gap-1.5">
-            <Check size={13} />Registered — open event group <ArrowRight size={13} />
-          </button>
-        ) : (
-          <button onClick={() => onRegister(e)} className="w-full mt-3 py-2 rounded-xl bg-violet-500 text-white text-xs font-semibold active:scale-[0.98] transition-transform">
-            Register
-          </button>
-        )}
+        <button onClick={onComingSoon} className="w-full mt-3 py-2 rounded-xl bg-zinc-800 text-zinc-500 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-default">
+          <Lock size={12} />Registration — coming soon
+        </button>
       </div>
     </div>
   );
 }
 
-export function EventsScreen({ events, registeredEventIds, interests, onRegister, onOpenCommunity }) {
+export function EventsScreen({ events, interests, onComingSoon }) {
   const sorted = [...events].sort((a, b) => {
     const am = interests && interests.includes(a.category) ? 1 : 0;
     const bm = interests && interests.includes(b.category) ? 1 : 0;
@@ -52,7 +45,7 @@ export function EventsScreen({ events, registeredEventIds, interests, onRegister
       <div className="relative z-10">
         <div className="px-4 pt-4">
           <p className="font-bold text-zinc-50 text-lg flex items-center gap-1.5"><CalendarDays size={17} className="text-violet-400" />Events</p>
-          <p className="text-xs text-zinc-500 mt-0.5">Register for an event and get instant access to its community — planning, chat, and updates all in one place.</p>
+          <p className="text-xs text-zinc-500 mt-0.5">Browsing is live. Registration and the event discussion space are coming soon.</p>
         </div>
         <div className="px-4 pt-4 space-y-2.5">
           {sorted.length === 0 && (
@@ -63,12 +56,9 @@ export function EventsScreen({ events, registeredEventIds, interests, onRegister
               <EventCard
                 e={e}
                 index={i}
-                registered={registeredEventIds.includes(e.id)}
                 interests={interests}
-                onRegister={onRegister}
-                onOpenCommunity={onOpenCommunity}
+                onComingSoon={onComingSoon}
               />
-              {i === 1 && <AdCard ad={MOCK_ADS[1]} />}
             </React.Fragment>
           ))}
         </div>

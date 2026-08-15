@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
   BadgeCheck, Settings, LogOut, LogIn, ShieldCheck, Grid3x3, Users2, Camera, Plus,
 } from "lucide-react";
-import { CATEGORIES, COLOR_MAP, MOCK_SIMILAR_PEOPLE } from "../data/constants.js";
+import { CATEGORIES, COLOR_MAP } from "../data/constants.js";
 import { useClickOutside } from "../utils/hooks.js";
 import { Avatar } from "./Common.jsx";
 import { nextId } from "../utils/helpers.js";
@@ -18,12 +18,6 @@ export function ProfileScreen({ user, joinedCommunities, onEditName, onVerifyGue
   const [myPosts, setMyPosts] = useState([]);
   const createdCommunities = joinedCommunities.filter((c) => c.creator === "You");
   const interests = user.interests || [];
-  const similarPeople = useMemo(() => (
-    MOCK_SIMILAR_PEOPLE
-      .map((p) => ({ ...p, overlap: p.shared.filter((s) => interests.includes(s)) }))
-      .filter((p) => p.overlap.length > 0)
-      .sort((a, b) => b.overlap.length - a.overlap.length)
-  ), [interests]);
   const settingsMenuRef = useClickOutside(menuOpen, () => setMenuOpen(false));
   const saveProfile = () => { onEditName(draftName); setBio(draftBio); setEditing(false); };
   return (
@@ -105,20 +99,6 @@ export function ProfileScreen({ user, joinedCommunities, onEditName, onVerifyGue
           </>
         )}
       </div>
-      {similarPeople.length > 0 && (
-        <div className="px-5 pt-5">
-          <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-2">People like you — based on your interests</p>
-          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-            {similarPeople.map((p) => (
-              <div key={p.id} className="w-28 shrink-0 bg-zinc-900 border border-zinc-800 rounded-2xl p-3 text-center">
-                <Avatar label={p.name[0]} size={40} />
-                <p className="text-xs font-medium text-zinc-200 mt-2 truncate">{p.name}</p>
-                <p className="text-[10px] text-violet-400 mt-0.5">{p.overlap.length} shared {p.overlap.length === 1 ? "interest" : "interests"}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
       <div className="flex border-t border-zinc-900 mt-5">
         <button onClick={() => setGridTab("posts")} className={`flex-1 flex items-center justify-center gap-1.5 py-3 border-b-2 text-xs font-medium ${gridTab === "posts" ? "border-zinc-50 text-zinc-50" : "border-transparent text-zinc-600"}`}>
           <Grid3x3 size={15} />Posts

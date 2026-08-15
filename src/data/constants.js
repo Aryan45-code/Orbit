@@ -139,17 +139,6 @@ export const MOCK_SUGGESTED_PEOPLE = [
   { id: "p4", name: "Ishita", context: "Also in Board Game Nights" },
 ];
 
-export const MOCK_ADS = [
-  { id: "ad1", title: "Neighborhood Book Fair — 20% off this week", subtitle: "This weekend, Convention Centre", cta: "View details", color: "amber" },
-  { id: "ad2", title: "Late-night chai & Maggi combo", subtitle: "Canteen 2, open till 1AM during exams", cta: "See offer", color: "orange" },
-];
-
-export const MOCK_SIMILAR_PEOPLE = [
-  { id: "s1", name: "Devika", shared: ["Study", "Coding & Projects"] },
-  { id: "s2", name: "Yashwin", shared: ["Sports", "Fitness"] },
-  { id: "s3", name: "Naina", shared: ["Travel", "Networking & Social"] },
-];
-
 // Locali-Tea: anonymous, ephemeral (48h) posts + discussion. createdAt is
 // computed relative to "now" so the seed data always looks fresh regardless
 // of when the app is opened.
