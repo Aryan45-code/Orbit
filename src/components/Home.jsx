@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Plus, Users, Flame, TrendingUp, Megaphone, Compass } from "lucide-react";
-import { CATEGORIES, COLOR_MAP, MOCK_ADS } from "../data/constants.js";
+import { Plus, Users, Flame, TrendingUp, Compass } from "lucide-react";
+import { CATEGORIES, COLOR_MAP } from "../data/constants.js";
 import { interestMatchCount, baseSparks, communityTrendScore } from "../utils/helpers.js";
 import { SkeletonFeed, SkeletonStory } from "./Skeleton.jsx";
 import { EmptyState } from "./EmptyState.jsx";
@@ -44,23 +44,6 @@ export function CommunityStories({ communities, joinedIds, onOpen, onCreateClick
           <p className="text-xs text-zinc-600 self-center py-2">Join a community to see it here.</p>
         )}
       </div>
-    </div>
-  );
-}
-
-export function AdCard({ ad }) {
-  const cm = COLOR_MAP[ad.color];
-  return (
-    <div className="bg-zinc-900 rounded-2xl border border-zinc-800 p-3.5 flex items-center gap-3">
-      <div className={`${cm.tint} ${cm.text} w-11 h-11 rounded-xl flex items-center justify-center shrink-0`}>
-        <Megaphone size={18} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide mb-0.5">Sponsored</p>
-        <p className="text-sm font-medium text-zinc-100 leading-snug truncate">{ad.title}</p>
-        <p className="text-xs text-zinc-500 truncate">{ad.subtitle}</p>
-      </div>
-      <span className={`${cm.text} text-[11px] font-semibold shrink-0`}>{ad.cta}</span>
     </div>
   );
 }
@@ -210,7 +193,6 @@ export function HomeScreen({ communities, joinedIds, onOpen, filterCat, setFilte
                       ))}
                     </div>
                   </div>
-                  {i === 0 && <AdCard ad={MOCK_ADS[0]} />}
                 </React.Fragment>
               ))}
             </>

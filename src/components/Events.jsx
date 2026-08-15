@@ -1,8 +1,7 @@
 import React from "react";
 import { CalendarDays, Clock, MapPin, Users, Lock } from "lucide-react";
-import { CATEGORIES, COLOR_MAP, MOCK_ADS } from "../data/constants.js";
+import { CATEGORIES, COLOR_MAP } from "../data/constants.js";
 import { EmptyState } from "./EmptyState.jsx";
-import { AdCard } from "./Home.jsx";
 
 // Events is listing-only for this launch — registration (and the discussion
 // space it used to unlock) is Coming soon, not wired to anything. Listing
@@ -60,7 +59,6 @@ export function EventsScreen({ events, interests, onComingSoon }) {
                 interests={interests}
                 onComingSoon={onComingSoon}
               />
-              {i === 1 && <AdCard ad={MOCK_ADS[1]} />}
             </React.Fragment>
           ))}
         </div>
