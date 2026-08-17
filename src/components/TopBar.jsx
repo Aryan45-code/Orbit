@@ -1,40 +1,45 @@
-import { Bell, Coffee, Search, MessageCircle, Clock } from "lucide-react";
+import { Coffee, Search, MessageCircle, Heart, Clock } from "lucide-react";
 import { useClickOutside } from "../utils/hooks.js";
 import { Logo } from "./Common.jsx";
 
-// Messages (DMs) and Notifications are both "Coming soon" for this launch —
-// no mock data pretending to be real. The bell still opens a small dropdown
-// (nicer than a toast that vanishes), it just says so plainly instead of
-// showing fabricated notification rows.
 export function TopBar({ notifOpen, setNotifOpen, onTeaClick, onSearchClick, onMessagesClick }) {
   const notifRef = useClickOutside(notifOpen, () => setNotifOpen(false));
+  const iconBtn =
+    "w-8 h-8 flex items-center justify-center text-fg active:opacity-50 transition-opacity";
   return (
     <div
       ref={notifRef}
-      className="relative flex items-center justify-between px-4 pb-3 bg-zinc-950 border-b border-zinc-900"
-      style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
+      className="relative flex items-center justify-between px-4 pb-3 bg-canvas border-b border-line shrink-0"
+      style={{ paddingTop: "max(0.875rem, env(safe-area-inset-top))" }}
     >
       <Logo />
-      <div className="flex items-center gap-1">
-        <button aria-label="Locali-Tea" onClick={onTeaClick} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-zinc-900">
-          <Coffee size={20} className="text-amber-400" />
+      <div className="flex items-center gap-4">
+        <button aria-label="Locali-Tea" onClick={onTeaClick} className={iconBtn}>
+          <Coffee size={23} strokeWidth={1.8} />
         </button>
-        <button aria-label="Search" onClick={onSearchClick} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-zinc-900">
-          <Search size={20} className="text-zinc-300" />
+        <button aria-label="Search" onClick={onSearchClick} className={iconBtn}>
+          <Search size={23} strokeWidth={1.8} />
         </button>
-        <button aria-label="Messages" onClick={onMessagesClick} className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-zinc-900">
-          <MessageCircle size={20} className="text-zinc-300" />
+        <button
+          aria-label="Notifications"
+          aria-expanded={notifOpen}
+          onClick={() => setNotifOpen(!notifOpen)}
+          className={iconBtn}
+        >
+          <Heart size={23} strokeWidth={1.8} />
         </button>
-        <button aria-label="Notifications" onClick={() => setNotifOpen(!notifOpen)} className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-zinc-900">
-          <Bell size={20} className="text-zinc-300" />
+        <button aria-label="Messages" onClick={onMessagesClick} className={iconBtn}>
+          <MessageCircle size={23} strokeWidth={1.8} />
         </button>
       </div>
       {notifOpen && (
-        <div className="absolute right-4 top-14 w-64 bg-zinc-900 rounded-2xl shadow-xl shadow-black/50 border border-zinc-800 z-40 overflow-hidden">
-          <div className="px-4 py-3 border-b border-zinc-800 font-semibold text-zinc-100 text-sm">Notifications</div>
+        <div className="animate-rise-in absolute right-4 top-full mt-1 w-60 bg-surface rounded-xl shadow-xl shadow-black/10 dark:shadow-black/60 border border-line z-40 overflow-hidden">
+          <div className="px-4 py-3 border-b border-line font-semibold text-fg text-sm">
+            Notifications
+          </div>
           <div className="px-4 py-6 flex flex-col items-center text-center gap-1.5">
-            <Clock size={18} className="text-zinc-600" />
-            <p className="text-xs text-zinc-500">Coming soon</p>
+            <Clock size={18} className="text-fg-subtle" />
+            <p className="text-xs text-fg-muted">Coming soon</p>
           </div>
         </div>
       )}

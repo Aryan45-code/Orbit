@@ -1,23 +1,54 @@
 import { useState } from "react";
-import { X } from "lucide-react";
 import { REPORT_REASONS } from "../data/constants.js";
+import { btnSecondary } from "./Common.jsx";
 
+// Instagram reports from a bottom sheet with a plain divided option list.
 export function ReportModal({ target, onClose, onSubmit }) {
   const [reason, setReason] = useState(REPORT_REASONS[0]);
   return (
-    <div className="absolute inset-0 bg-black/60 z-[60] flex items-center justify-center px-6" onClick={onClose}>
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-3">
-          <p className="font-semibold text-zinc-100">Report {target}</p>
-          <button onClick={onClose}><X size={18} className="text-zinc-500" /></button>
+    <div
+      className="absolute inset-0 bg-black/40 dark:bg-black/70 z-[60] flex items-end animate-fade-in"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Report ${target}`}
+        className="animate-rise-in w-full bg-surface border-t border-line rounded-t-2xl"
+        style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 rounded-full bg-line-strong mx-auto mt-2.5 mb-3" />
+        <p className="text-center font-semibold text-fg pb-3 border-b border-line px-5">
+          Report {target}
+        </p>
+        <div className="px-5 pt-3 pb-1">
+          <p className="text-[13px] text-fg-muted mb-2">Why are you reporting this?</p>
         </div>
-        <p className="text-xs text-zinc-500 mb-2">Reason</p>
-        <div className="space-y-1.5 mb-4">
+        <div>
           {REPORT_REASONS.map((r) => (
-            <button key={r} onClick={() => setReason(r)} className={`w-full text-left text-sm px-3 py-2 rounded-xl border ${reason === r ? "border-violet-500 bg-violet-500/10 text-violet-300" : "border-zinc-800 text-zinc-400"}`}>{r}</button>
+            <button
+              key={r}
+              onClick={() => setReason(r)}
+              className={`w-full text-left text-sm px-5 py-3.5 border-b border-line transition-colors ${
+                reason === r ? "text-accent font-semibold" : "text-fg"
+              }`}
+            >
+              {r}
+            </button>
           ))}
         </div>
-        <button onClick={() => onSubmit(reason)} className="w-full py-2.5 rounded-xl bg-zinc-50 text-zinc-900 text-sm font-semibold">Submit report</button>
+        <div className="p-5 flex gap-2">
+          <button onClick={onClose} className={`${btnSecondary} flex-1 py-2.5`}>
+            Cancel
+          </button>
+          <button
+            onClick={() => onSubmit(reason)}
+            className="flex-1 py-2.5 rounded-lg bg-accent text-accent-fg text-sm font-semibold active:opacity-70"
+          >
+            Submit
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,14 +1,21 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
-  ArrowLeft, Settings, TrendingUp, Crown, Flame, Search, Pin, Send,
-  Image as ImageIcon, Camera, Flag, Check, X, Trash2, QrCode, BadgeCheck,
-  Sticker, Loader2,
+  ArrowLeft, Settings, Crown, Heart, Search, Pin, Camera, Flag, X,
+  Trash2, QrCode, BadgeCheck, Sticker, Loader2,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { CATEGORIES, COLOR_MAP } from "../data/constants.js";
-import { baseSparks, handleFor } from "../utils/helpers.js";
-import { Avatar } from "./Common.jsx";
-import { supabase } from "../lib/supabaseClient.js";
+import { handleFor, compactCount, safeFileName } from "../utils/helpers.js";
+import { Avatar, btnPrimary, btnSecondary } from "./Common.jsx";
+import { CommunityMark } from "./Home.jsx";
+import { supabase, isSupabaseConfigured } from "../lib/supabaseClient.js";
+import { demoMembersFor, demoPostsFor, demoMessagesFor } from "../data/demoData.js";
+
+// See the DEMO note in App.jsx — local sample data when no backend is configured.
+const DEMO = !isSupabaseConfigured || import.meta.env.VITE_PREVIEW === "1";
+
+const field =
+  "w-full bg-surface-2 border border-line text-fg placeholder-fg-subtle rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-accent transition-colors";
 
 export function CommunitySettings({ c, onSave, onDelete, onClose }) {
   const [name, setName] = useState(c.name);
@@ -28,11 +35,18 @@ export function CommunitySettings({ c, onSave, onDelete, onClose }) {
 
   const save = async () => {
     if (!name.trim()) return;
-    const updates = { name: name.trim(), desc: desc.trim() || "No description yet.", category, tags: [category] };
+    const updates = {
+      name: name.trim(),
+      desc: desc.trim() || "No description yet.",
+      category,
+      tags: [category],
+    };
     if (avatarFile) {
       setSavingAvatar(true);
-      const path = `${c.id}/${Date.now()}-${avatarFile.name}`;
-      const { error: upErr } = await supabase.storage.from("community-avatars").upload(path, avatarFile, { upsert: true });
+      const path = `${c.id}/${Date.now()}-${safeFileName(avatarFile.name)}`;
+      const { error: upErr } = await supabase.storage
+        .from("community-avatars")
+        .upload(path, avatarFile, { upsert: true });
       if (!upErr) {
         const { data: pub } = supabase.storage.from("community-avatars").getPublicUrl(path);
         if (pub?.publicUrl) updates.avatarUrl = pub.publicUrl;
@@ -41,70 +55,120 @@ export function CommunitySettings({ c, onSave, onDelete, onClose }) {
     }
     onSave(updates);
   };
+
   return (
-    <div className="absolute inset-0 bg-black/60 z-[70] flex items-end" onClick={onClose}>
-      <div className="bg-zinc-950 w-full rounded-t-3xl max-h-[92%] overflow-y-auto no-scrollbar border-t border-zinc-800" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 pt-4 pb-3">
-          <p className="font-bold text-zinc-50">Community settings</p>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-900"><X size={18} className="text-zinc-400" /></button>
-        </div>
-        <div className="px-5 pb-6">
-          <p className="text-xs text-zinc-500 mb-1.5">Status image</p>
-          <p className="text-[11px] text-zinc-600 mb-2.5">Shown on this community's page and in the joined-communities strip — like a WhatsApp status. Only you can change it.</p>
-          <label className="flex items-center gap-3 mb-5 cursor-pointer w-fit">
-            <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center justify-center shrink-0">
-              {avatarPreview ? <img src={avatarPreview} alt="" className="w-full h-full object-cover" /> : <ImageIcon size={18} className="text-zinc-700" />}
-            </div>
-            <span className="text-xs font-medium text-violet-400 flex items-center gap-1.5">
-              <Camera size={13} />{avatarPreview ? "Change image" : "Upload image"}
-            </span>
-            <input type="file" accept="image/*" className="hidden" onChange={pickAvatar} />
-          </label>
-          <p className="text-xs text-zinc-500 mb-1.5">Name</p>
-          <input
-            value={name} onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") save(); }}
-            maxLength={80}
-            className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm mb-4 outline-none focus:border-violet-500"
-          />
-          <p className="text-xs text-zinc-500 mb-1.5">Description</p>
-          <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} maxLength={800} className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm mb-4 outline-none focus:border-violet-500" />
-          <p className="text-xs text-zinc-500 mb-1.5">Category</p>
-          <div className="grid grid-cols-2 gap-2 mb-6">
-            {CATEGORIES.map((cat) => {
-              const cm = COLOR_MAP[cat.color];
-              const selected = category === cat.name;
-              const Icon = cat.icon;
-              return (
-                <button key={cat.name} onClick={() => setCategory(cat.name)} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-left border ${selected ? "border-violet-500 ring-1 ring-violet-500/30 bg-violet-500/5" : "border-zinc-800 bg-zinc-900"}`}>
-                  <div className={`${cm.tint} ${cm.text} w-7 h-7 rounded-lg flex items-center justify-center shrink-0`}><Icon size={14} /></div>
-                  <p className="text-xs font-medium text-zinc-200 leading-tight">{cat.name}</p>
-                  {selected && <Check size={13} className="text-violet-400 ml-auto shrink-0" />}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            disabled={!name.trim() || savingAvatar}
-            onClick={save}
-            className="w-full py-2.5 rounded-xl bg-violet-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 text-sm font-semibold mb-3 flex items-center justify-center gap-1.5"
-          >
-            {savingAvatar && <Loader2 size={14} className="animate-spin" />}
-            {savingAvatar ? "Saving..." : "Save changes"}
-          </button>
-          {!confirmDelete ? (
-            <button onClick={() => setConfirmDelete(true)} className="w-full py-2.5 rounded-xl border border-rose-500/30 text-rose-400 text-sm font-semibold flex items-center justify-center gap-1.5">
-              <Trash2 size={14} />Delete community
+    <div
+      className="absolute inset-0 bg-black/50 dark:bg-black/70 z-[70] flex items-end animate-fade-in"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Community settings"
+        className="animate-rise-in w-full bg-surface border-t border-line rounded-t-3xl max-h-[85%] overflow-y-auto no-scrollbar"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-5" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+          <div className="flex items-center justify-between mb-5">
+            <p className="font-semibold text-fg">Community settings</p>
+            <button onClick={onClose} aria-label="Close">
+              <X size={18} className="text-fg-subtle" />
             </button>
-          ) : (
-            <div className="border border-rose-500/30 bg-rose-500/5 rounded-xl p-3.5">
-              <p className="text-xs text-rose-300 mb-2.5">This deletes the community for everyone. This can't be undone.</p>
-              <div className="flex gap-2">
-                <button onClick={() => setConfirmDelete(false)} className="flex-1 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs font-medium">Cancel</button>
-                <button onClick={onDelete} className="flex-1 py-2 rounded-lg bg-rose-500 text-white text-xs font-semibold">Yes, delete</button>
+          </div>
+
+          <div className="flex items-center gap-4 mb-5">
+            <div className="w-16 h-16 rounded-2xl overflow-hidden bg-surface-2 border border-line flex items-center justify-center shrink-0">
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <Camera size={20} className="text-fg-subtle" />
+              )}
+            </div>
+            <label className="text-sm text-accent font-medium cursor-pointer">
+              {avatarPreview ? "Change photo" : "Add a photo"}
+              <input type="file" accept="image/*" className="hidden" onChange={pickAvatar} />
+            </label>
+          </div>
+
+          <div className="space-y-3 mb-5">
+            <div>
+              <label className="text-xs text-fg-muted mb-1.5 block">Name</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={80}
+                className={field}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-fg-muted mb-1.5 block">Description</label>
+              <textarea
+                value={desc}
+                onChange={(e) => setDesc(e.target.value)}
+                rows={3}
+                maxLength={800}
+                className={`${field} resize-none`}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-fg-muted mb-1.5 block">Category</label>
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.name}
+                    onClick={() => setCategory(cat.name)}
+                    className={`text-xs px-3.5 py-2 rounded-full shrink-0 font-medium transition-colors ${
+                      category === cat.name
+                        ? "bg-inverse text-inverse-fg"
+                        : "bg-surface-2 text-fg-muted"
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
               </div>
             </div>
-          )}
+          </div>
+
+          <button
+            onClick={save}
+            disabled={!name.trim() || savingAvatar}
+            className="w-full py-3 rounded-xl bg-accent disabled:bg-surface-2 text-accent-fg disabled:text-fg-subtle text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+          >
+            {savingAvatar && <Loader2 size={14} className="animate-spin" />}
+            {savingAvatar ? "Uploading…" : "Save changes"}
+          </button>
+
+          <div className="mt-5 pt-5 border-t border-line">
+            {!confirmDelete ? (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="w-full py-2.5 text-sm text-rose-600 dark:text-rose-400 font-medium"
+              >
+                Delete community
+              </button>
+            ) : (
+              <div className="border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/5 rounded-xl p-4">
+                <p className="text-xs text-rose-700 dark:text-rose-300 mb-3 leading-relaxed">
+                  This deletes the community for everyone. It can't be undone.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    className="flex-1 py-2.5 rounded-lg bg-surface border border-line text-fg text-xs font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={onDelete}
+                    className="flex-1 py-2.5 rounded-lg bg-rose-600 text-white text-xs font-semibold"
+                  >
+                    Yes, delete
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -128,7 +192,6 @@ function mapPostRow(row) {
     authorId: row.author_id,
     text: row.text,
     time: timeAgo(row.created_at),
-    hasImage: row.has_image,
     imageUrl: row.image_url,
     sparks: row.spark_count,
     pinned: row.pinned,
@@ -147,13 +210,15 @@ function mapMessageRow(row) {
   };
 }
 
-export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, verified, onBlocked, sparked, onSpark, onUpdate, onDelete, trendRank, interests, authUserId, myName }) {
-  const cat = CATEGORIES.find((x) => x.name === c.category);
+export function CommunityDetail({
+  c, joined, onJoinToggle, onClose, onReport, verified, onBlocked,
+  onUpdate, onDelete, interests, authUserId, myName,
+}) {
+  const cat = CATEGORIES.find((x) => x.name === c.category) || CATEGORIES[0];
   const cm = COLOR_MAP[cat.color];
   const Icon = cat.icon;
-  const sparks = baseSparks(c) + (sparked ? 1 : 0);
   const isAdmin = !!authUserId && c.creatorId === authUserId;
-  const isLive = c.lastActive <= 10;
+
   const [tab, setTab] = useState("posts");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -161,7 +226,8 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
   const [postImageFile, setPostImageFile] = useState(null);
   const [postImagePreview, setPostImagePreview] = useState(null);
   const [postingImage, setPostingImage] = useState(false);
-  const handle = useMemo(() => handleFor(c.name, c.id), [c.name, c.id]);
+  // DB handle, not a recomputed one — the QR must resolve.
+  const handle = c.handle || handleFor(c.name, c.id);
   const [chatDraft, setChatDraft] = useState("");
   const [chatMessages, setChatMessages] = useState([]);
   const [memberQuery, setMemberQuery] = useState("");
@@ -172,24 +238,56 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
   const [stickers, setStickers] = useState([]);
   const [stickersLoaded, setStickersLoaded] = useState(false);
   const [uploadingSticker, setUploadingSticker] = useState(false);
+  const chatScrollRef = useRef(null);
 
-  // Real fetch + realtime, scoped to this one community. App.jsx re-mounts
-  // this component (key={selectedCommunity.id}) on every community switch,
-  // so a plain mount-time effect is enough — no need to watch c.id changing.
+  // Realtime payloads have no profiles join, so authors arrive as "Someone".
+  const nameCacheRef = useRef(new Map());
+  const resolveAuthorName = useCallback(async (authorId) => {
+    if (!authorId) return "Someone";
+    const cached = nameCacheRef.current.get(authorId);
+    if (cached) return cached;
+    const { data } = await supabase
+      .from("profiles")
+      .select("name")
+      .eq("id", authorId)
+      .single();
+    const resolved = data?.name || "Someone";
+    nameCacheRef.current.set(authorId, resolved);
+    return resolved;
+  }, []);
+
   useEffect(() => {
+    if (DEMO) {
+      setPosts(demoPostsFor(c.id));
+      setChatMessages(demoMessagesFor(c.id));
+      setMembers(demoMembersFor(c.id, c.members));
+      return;
+    }
     let cancelled = false;
 
-    // Make sure the auth session is actually fresh before any of the
-    // RLS-gated fetches below fire. Without this, a request can go out
-    // right as the app resumes (or a community is reopened) with a
-    // stale/expiring JWT — Supabase doesn't error on that, it just quietly
-    // scopes the request as "anon" under RLS and returns an EMPTY result
-    // (200 OK, data: []). Since this component remounts fresh on every
-    // community open (key={selectedCommunity.id} in App.jsx), that empty
-    // result was overwriting real, still-in-the-database posts/messages —
-    // looked exactly like data vanishing, even though nothing was ever
-    // deleted (confirmed via a delete-audit trigger: zero deletes fired).
+    // Stale JWT scopes the request as anon and returns [] with a 200, wiping real data.
     const ready = supabase.auth.getSession();
+
+    const loadMembers = async () => {
+      const { data } = await supabase
+        .from("community_members")
+        .select("user_id, joined_at, profiles(name, interests)")
+        .eq("community_id", c.id)
+        .order("joined_at", { ascending: true });
+      if (!cancelled && data) {
+        data.forEach((r) => {
+          if (r.profiles?.name) nameCacheRef.current.set(r.user_id, r.profiles.name);
+        });
+        setMembers(
+          data.map((r) => ({
+            userId: r.user_id,
+            name: r.profiles?.name || "Someone",
+            interests: r.profiles?.interests || [],
+            joinedAt: r.joined_at,
+          }))
+        );
+      }
+    };
 
     ready.then(() => {
       if (cancelled) return;
@@ -197,7 +295,7 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
       (async () => {
         const { data } = await supabase
           .from("community_posts")
-          .select("id, text, has_image, image_url, spark_count, pinned, created_at, author_id, profiles(name)")
+          .select("id, text, image_url, spark_count, pinned, created_at, author_id, profiles(name)")
           .eq("community_id", c.id)
           .order("created_at", { ascending: false });
         if (!cancelled && data) setPosts(data.map(mapPostRow));
@@ -220,66 +318,66 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
         if (!cancelled && data) setChatMessages(data.map(mapMessageRow));
       })();
 
-      (async () => {
-        const { data } = await supabase
-          .from("community_members")
-          .select("user_id, joined_at, profiles(name, interests)")
-          .eq("community_id", c.id)
-          .order("joined_at", { ascending: true });
-        if (!cancelled && data) {
-          setMembers(
-            data.map((r) => ({
-              userId: r.user_id,
-              name: r.profiles?.name || "Someone",
-              interests: r.profiles?.interests || [],
-              joinedAt: r.joined_at,
-            }))
-          );
-        }
-      })();
+      loadMembers();
     });
 
     const channel = supabase
       .channel(`community-${c.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "community_posts", filter: `community_id=eq.${c.id}` }, (payload) => {
-        if (payload.eventType === "DELETE") {
-          setPosts((ps) => ps.filter((p) => p.id !== payload.old.id));
-          return;
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "community_posts", filter: `community_id=eq.${c.id}` },
+        (payload) => {
+          if (payload.eventType === "DELETE") {
+            setPosts((ps) => ps.filter((p) => p.id !== payload.old.id));
+            return;
+          }
+          const mappedPost = mapPostRow(payload.new);
+          setPosts((ps) => {
+            const exists = ps.some((p) => p.id === mappedPost.id);
+            return exists
+              ? ps.map((p) => (p.id === mappedPost.id ? { ...p, ...mappedPost, who: p.who } : p))
+              : [mappedPost, ...ps];
+          });
+          if (payload.eventType === "INSERT" && payload.new.author_id !== authUserId) {
+            resolveAuthorName(payload.new.author_id).then((who) => {
+              if (!cancelled) {
+                setPosts((ps) => ps.map((p) => (p.id === mappedPost.id ? { ...p, who } : p)));
+              }
+            });
+          }
         }
-        setPosts((ps) => {
-          const mapped = mapPostRow(payload.new);
-          const exists = ps.some((p) => p.id === mapped.id);
-          return exists ? ps.map((p) => (p.id === mapped.id ? { ...p, ...mapped, who: p.who } : p)) : [mapped, ...ps];
-        });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "community_messages", filter: `community_id=eq.${c.id}` }, (payload) => {
-        if (payload.eventType === "DELETE") {
-          setChatMessages((ms) => ms.filter((m) => m.id !== payload.old.id));
-          return;
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "community_messages", filter: `community_id=eq.${c.id}` },
+        (payload) => {
+          if (payload.eventType === "DELETE") {
+            setChatMessages((ms) => ms.filter((m) => m.id !== payload.old.id));
+            return;
+          }
+          const mappedMsg = mapMessageRow(payload.new);
+          setChatMessages((ms) => {
+            const exists = ms.some((m) => m.id === mappedMsg.id);
+            return exists
+              ? ms.map((m) => (m.id === mappedMsg.id ? { ...m, ...mappedMsg, who: m.who } : m))
+              : [...ms, mappedMsg];
+          });
+          if (payload.eventType === "INSERT" && payload.new.author_id !== authUserId) {
+            resolveAuthorName(payload.new.author_id).then((who) => {
+              if (!cancelled) {
+                setChatMessages((ms) =>
+                  ms.map((m) => (m.id === mappedMsg.id ? { ...m, who } : m))
+                );
+              }
+            });
+          }
         }
-        setChatMessages((ms) => {
-          const mapped = mapMessageRow(payload.new);
-          const exists = ms.some((m) => m.id === mapped.id);
-          return exists ? ms.map((m) => (m.id === mapped.id ? { ...m, ...mapped, who: m.who } : m)) : [...ms, mapped];
-        });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "community_members", filter: `community_id=eq.${c.id}` }, async () => {
-        const { data } = await supabase
-          .from("community_members")
-          .select("user_id, joined_at, profiles(name, interests)")
-          .eq("community_id", c.id)
-          .order("joined_at", { ascending: true });
-        if (!cancelled && data) {
-          setMembers(
-            data.map((r) => ({
-              userId: r.user_id,
-              name: r.profiles?.name || "Someone",
-              interests: r.profiles?.interests || [],
-              joinedAt: r.joined_at,
-            }))
-          );
-        }
-      })
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "community_members", filter: `community_id=eq.${c.id}` },
+        () => loadMembers()
+      )
       .subscribe();
 
     return () => {
@@ -289,16 +387,28 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [c.id]);
 
+  // Pin chat to newest. scrollTop, not scrollIntoView, which drags the page scroller.
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (tab === "chat" && el) el.scrollTop = el.scrollHeight;
+  }, [chatMessages, tab]);
+
   const total = members.length || c.members;
+
   const filteredMembers = useMemo(() => {
     const q = memberQuery.trim().toLowerCase();
-    const list = members.map((m) => ({ ...m, role: m.userId === c.creatorId ? "Creator" : "Member" }));
+    const list = members.map((m) => ({
+      ...m,
+      role: m.userId === c.creatorId ? "Creator" : "Member",
+    }));
     return q ? list.filter((m) => m.name.toLowerCase().includes(q)) : list;
   }, [memberQuery, members, c.creatorId]);
+
   const recentlyJoined = useMemo(
     () => [...members].sort((a, b) => new Date(b.joinedAt) - new Date(a.joinedAt)).slice(0, 4),
     [members]
   );
+
   const matchedMembers = useMemo(() => {
     if (!interests || interests.length === 0) return [];
     return members
@@ -306,8 +416,10 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
       .map((m) => ({ ...m, overlap: (m.interests || []).filter((s) => interests.includes(s)) }))
       .filter((m) => m.overlap.length > 0);
   }, [members, interests, authUserId]);
+
   const faceStack = members.slice(0, 5);
   const extraCount = Math.max(0, total - faceStack.length);
+
   const orderedPosts = useMemo(() => {
     const pinned = posts.filter((p) => p.pinned);
     const rest = posts.filter((p) => !p.pinned);
@@ -316,15 +428,27 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
 
   const handlePost = async (text) => {
     const t = (text ?? draft).trim();
-    if (!t || !authUserId) return;
-    setDraft("");
     const file = postImageFile;
+    // An image on its own is a valid post; only block when there's neither.
+    if ((!t && !file) || !authUserId) return;
+    setDraft("");
     setPostImageFile(null);
     setPostImagePreview(null);
+
+    if (DEMO) {
+      setPosts((ps) => [
+        { id: `demo-p-${Date.now()}`, who: myName || "You", authorId: authUserId,
+          text: t, time: "now", imageUrl: file ? URL.createObjectURL(file) : null,
+          sparks: 0, pinned: false },
+        ...ps,
+      ]);
+      return;
+    }
+
     let imageUrl = null;
     if (file) {
       setPostingImage(true);
-      const path = `${authUserId}/${Date.now()}-${file.name}`;
+      const path = `${authUserId}/${Date.now()}-${safeFileName(file.name)}`;
       const { error: upErr } = await supabase.storage.from("community-media").upload(path, file);
       if (!upErr) {
         const { data: pub } = supabase.storage.from("community-media").getPublicUrl(path);
@@ -332,36 +456,45 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
       }
       setPostingImage(false);
     }
+
     const { data, error } = await supabase
       .from("community_posts")
-      .insert({ community_id: c.id, author_id: authUserId, text: t, has_image: !!imageUrl, image_url: imageUrl })
-      .select("id, text, has_image, image_url, spark_count, pinned, created_at, author_id")
+      .insert({ community_id: c.id, author_id: authUserId, text: t, image_url: imageUrl })
+      .select("id, text, image_url, spark_count, pinned, created_at, author_id")
       .single();
     if (!error && data) {
       setPosts((ps) => [{ ...mapPostRow(data), who: myName || "You" }, ...ps]);
     }
   };
 
-  // Author can always remove their own post/message; the community's
-  // creator can remove anything posted inside it (moderation) — matches
-  // the delete RLS policies in schema_media_and_moderation.sql. Optimistic
-  // + rollback, same pattern as the rest of this file.
   const deletePost = async (post) => {
     if (!(post.authorId === authUserId || isAdmin)) return;
+    const prev = posts;
     setPosts((ps) => ps.filter((p) => p.id !== post.id));
+    if (DEMO) return;
     const { error } = await supabase.from("community_posts").delete().eq("id", post.id);
-    if (error) setPosts((ps) => [post, ...ps]);
+    if (error) setPosts(prev);
   };
 
   const deleteMessage = async (message) => {
     if (!(message.authorId === authUserId || isAdmin)) return;
+    const prev = chatMessages;
     setChatMessages((ms) => ms.filter((m) => m.id !== message.id));
+    if (DEMO) return;
     const { error } = await supabase.from("community_messages").delete().eq("id", message.id);
-    if (error) setChatMessages((ms) => [...ms, message]);
+    if (error) setChatMessages(prev);
   };
 
   const loadStickers = async () => {
-    const { data } = await supabase.from("stickers").select("id, image_url").order("created_at", { ascending: false });
+    if (DEMO) {
+      setStickers([]);
+      setStickersLoaded(true);
+      return;
+    }
+    const { data } = await supabase
+      .from("stickers")
+      .select("id, image_url")
+      .order("created_at", { ascending: false });
     setStickers(data || []);
     setStickersLoaded(true);
   };
@@ -369,7 +502,7 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
   const uploadSticker = async (file) => {
     if (!authUserId || !file) return;
     setUploadingSticker(true);
-    const path = `${authUserId}/${Date.now()}-${file.name}`;
+    const path = `${authUserId}/${Date.now()}-${safeFileName(file.name)}`;
     const { error: upErr } = await supabase.storage.from("stickers").upload(path, file);
     if (!upErr) {
       const { data: pub } = supabase.storage.from("stickers").getPublicUrl(path);
@@ -403,6 +536,7 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
     const already = postSparkIds.includes(id);
     setPostSparkIds((ids) => (already ? ids.filter((x) => x !== id) : [...ids, id]));
     setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, sparks: p.sparks + (already ? -1 : 1) } : p)));
+    if (DEMO) return;
     const { error } = already
       ? await supabase.from("community_post_sparks").delete().eq("post_id", id).eq("user_id", authUserId)
       : await supabase.from("community_post_sparks").insert({ post_id: id, user_id: authUserId });
@@ -414,315 +548,296 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
 
   const togglePin = async (post) => {
     const currentlyPinned = posts.find((p) => p.pinned);
+    if (DEMO) {
+      const next = !post.pinned;
+      setPosts((ps) =>
+        ps.map((p) =>
+          p.id === post.id ? { ...p, pinned: next } : { ...p, pinned: false }
+        )
+      );
+      return;
+    }
     if (currentlyPinned && currentlyPinned.id !== post.id) {
       await supabase.from("community_posts").update({ pinned: false }).eq("id", currentlyPinned.id);
     }
     const nextPinned = !post.pinned;
     await supabase.from("community_posts").update({ pinned: nextPinned }).eq("id", post.id);
-    setPosts((ps) => ps.map((p) => (p.id === post.id ? { ...p, pinned: nextPinned } : currentlyPinned && p.id === currentlyPinned.id ? { ...p, pinned: false } : p)));
+    setPosts((ps) =>
+      ps.map((p) =>
+        p.id === post.id
+          ? { ...p, pinned: nextPinned }
+          : currentlyPinned && p.id === currentlyPinned.id
+            ? { ...p, pinned: false }
+            : p
+      )
+    );
   };
 
   const togglePinMessage = async (message) => {
     const currentlyPinned = chatMessages.find((m) => m.pinned);
+    if (DEMO) {
+      const next = !message.pinned;
+      setChatMessages((ms) =>
+        ms.map((m) =>
+          m.id === message.id ? { ...m, pinned: next } : { ...m, pinned: false }
+        )
+      );
+      return;
+    }
     if (currentlyPinned && currentlyPinned.id !== message.id) {
       await supabase.from("community_messages").update({ pinned: false }).eq("id", currentlyPinned.id);
     }
     const nextPinned = !message.pinned;
     await supabase.from("community_messages").update({ pinned: nextPinned }).eq("id", message.id);
-    setChatMessages((ms) => ms.map((m) => (m.id === message.id ? { ...m, pinned: nextPinned } : currentlyPinned && m.id === currentlyPinned.id ? { ...m, pinned: false } : m)));
+    setChatMessages((ms) =>
+      ms.map((m) =>
+        m.id === message.id
+          ? { ...m, pinned: nextPinned }
+          : currentlyPinned && m.id === currentlyPinned.id
+            ? { ...m, pinned: false }
+            : m
+      )
+    );
   };
 
-  // Was a dead button (no handler at all) — now a real delete, backed by the
-  // "community creator can remove a member" policy in
-  // schema_security_hardening.sql. Optimistic + rollback, same pattern as
-  // the rest of this file.
   const removeMember = async (member) => {
     if (!isAdmin) return;
+    const prev = members;
     setMembers((ms) => ms.filter((m) => m.userId !== member.userId));
+    if (DEMO) return;
     const { error } = await supabase
       .from("community_members")
       .delete()
       .eq("community_id", c.id)
       .eq("user_id", member.userId);
-    if (error) {
-      setMembers((ms) => [...ms, member]);
-    }
+    if (error) setMembers(prev);
   };
 
   const sendChat = async () => {
     const t = chatDraft.trim();
     if (!t || !authUserId) return;
     setChatDraft("");
+    if (DEMO) {
+      setChatMessages((ms) => [
+        ...ms,
+        { id: `demo-m-${Date.now()}`, who: myName || "You", authorId: authUserId,
+          text: t, time: "now", imageUrl: null, pinned: false },
+      ]);
+      return;
+    }
     const { data, error } = await supabase
       .from("community_messages")
       .insert({ community_id: c.id, author_id: authUserId, text: t })
-      .select("id, text, created_at, author_id")
+      .select("id, text, image_url, created_at, author_id")
       .single();
     if (!error && data) {
       setChatMessages((ms) => [...ms, { ...mapMessageRow(data), who: myName || "You" }]);
     }
   };
 
+  // IG's underline tab strip — the label carries the state, no boxed segments.
+  const tabClass = (isOn) =>
+    `flex-1 text-sm font-semibold py-3 border-b-2 -mb-px transition-colors ${
+      isOn ? "border-fg text-fg" : "border-transparent text-fg-subtle"
+    }`;
+
+  const pinnedMessage = chatMessages.find((m) => m.pinned);
+  const kind = c.official ? "club" : "community";
+  const iconBtn = "w-8 h-8 flex items-center justify-center text-fg active:opacity-50";
+
   return (
-    <div className="relative flex-1 bg-zinc-950 flex flex-col min-h-0">
-      <div className="relative z-10 flex flex-col min-h-0 overflow-y-auto no-scrollbar flex-1">
-        <div className="flex items-center justify-between px-4 pt-4 pb-1 shrink-0">
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-900"><ArrowLeft size={18} className="text-zinc-300" /></button>
-          <div className="flex items-center gap-1.5">
-            {trendRank && (
-              <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-300 bg-amber-500/10 px-2.5 py-1.5 rounded-full">
-                <TrendingUp size={11} />#{trendRank} Trending
+    <div className="flex-1 bg-canvas flex flex-col min-h-0">
+      <div className="flex flex-col min-h-0 overflow-y-auto no-scrollbar flex-1 pb-28">
+        <div
+          className="flex items-center gap-3 px-4 pb-3 border-b border-line shrink-0"
+          style={{ paddingTop: "max(0.875rem, env(safe-area-inset-top))" }}
+        >
+          <button onClick={onClose} aria-label="Back" className={`${iconBtn} -ml-1.5`}>
+            <ArrowLeft size={22} strokeWidth={1.9} />
+          </button>
+          <p className="flex-1 min-w-0 text-base font-semibold text-fg truncate">{c.name}</p>
+          {isAdmin ? (
+            <button onClick={() => setSettingsOpen(true)} aria-label="Settings" className={iconBtn}>
+              <Settings size={20} strokeWidth={1.9} />
+            </button>
+          ) : (
+            <button onClick={onReport} aria-label="Report" className={iconBtn}>
+              <Flag size={19} strokeWidth={1.9} />
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-7 px-4 pt-4">
+          <CommunityMark community={c} size={80} />
+          <div className="flex-1 flex justify-around text-center">
+            <div>
+              <p className="text-[17px] font-semibold text-fg mono leading-tight">
+                {compactCount(total)}
+              </p>
+              <p className="text-[13px] text-fg mt-0.5">members</p>
+            </div>
+            <div>
+              <p className="text-[17px] font-semibold text-fg mono leading-tight">
+                {compactCount(posts.length)}
+              </p>
+              <p className="text-[13px] text-fg mt-0.5">posts</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-4 pt-3">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="text-sm font-semibold text-fg">{c.name}</p>
+            {c.official && <BadgeCheck size={14} className="text-accent shrink-0" />}
+            {isAdmin && (
+              <span className="inline-flex items-center gap-1 text-[13px] text-fg-subtle">
+                <Crown size={11} />
+                you created this
               </span>
             )}
-            {isAdmin ? (
-              <button onClick={() => setSettingsOpen(true)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-900"><Settings size={15} className="text-zinc-300" /></button>
-            ) : (
-              <button onClick={onReport} className="text-xs text-zinc-400 hover:bg-zinc-900 px-2.5 py-1.5 rounded-full flex items-center gap-1"><Flag size={12} />Report</button>
-            )}
           </div>
-        </div>
-        <div className="px-5 pt-3">
-          <div className="mb-1 flex items-end justify-between">
-            <div className="relative w-[72px] h-[72px] rounded-3xl flex items-center justify-center shrink-0">
-              {c.avatarUrl ? (
-                <img src={c.avatarUrl} alt="" className="w-full h-full rounded-[18px] object-cover" />
-              ) : (
-                <div className={`${cm.tint} ${cm.text} w-full h-full rounded-[18px] flex items-center justify-center`}>
-                  <Icon size={28} />
-                </div>
-              )}
-              {isLive && (
-                <span className="absolute -bottom-1 -right-1.5 flex items-center gap-1 bg-emerald-400 text-zinc-900 text-[9px] font-bold px-1.5 py-0.5 rounded-full ring-4 ring-zinc-950">
-                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-900 animate-pulse" />LIVE
-                </span>
-              )}
-            </div>
+          <p className="text-[13px] text-fg-subtle">{c.category}</p>
+          <p className="text-sm text-fg mt-1 leading-snug">{c.desc}</p>
+          <div className="flex items-center gap-3 mt-1.5">
+            <span className="text-[13px] text-fg-subtle mono">@{handle}</span>
             <button
-              onClick={() => { if (!verified) { onBlocked(); return; } onJoinToggle(c.id); }}
-              className={`mb-1 px-5 py-2.5 rounded-xl text-sm font-semibold shrink-0 ${joined ? "bg-zinc-800 text-zinc-300 border border-zinc-700" : "bg-violet-500 text-white"}`}
+              onClick={() => setQrOpen(true)}
+              className="flex items-center gap-1 text-[13px] text-accent font-semibold"
             >
-              {joined ? "Joined ✓" : "Join"}
+              <QrCode size={13} />
+              QR
             </button>
           </div>
-          <div className="flex items-center gap-2 mb-2 mt-3 flex-wrap">
-            <div className={`${cm.tint} ${cm.text} inline-flex px-2.5 py-1 rounded-full text-xs font-medium`}>{c.category}</div>
-            {c.official && <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-500/10 text-violet-300"><BadgeCheck size={11} />Official club</div>}
-            {isAdmin && <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-500/10 text-violet-300"><Crown size={11} />You created this</div>}
-          </div>
-          <h2 className="text-lg font-bold text-zinc-50">{c.name}</h2>
-          <p className="text-sm text-zinc-400 mt-1.5">{c.desc}</p>
-          <div className="flex items-center gap-3 mt-3 text-xs text-zinc-500">
-            <span className="mono text-zinc-400">@{handle}</span>
-            <button onClick={() => setQrOpen(true)} className="flex items-center gap-1 text-zinc-400 hover:text-zinc-200">
-              <QrCode size={13} />QR
+
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => {
+                if (!verified) {
+                  onBlocked();
+                  return;
+                }
+                onJoinToggle(c.id);
+              }}
+              className={`${joined ? btnSecondary : btnPrimary} flex-1 py-1.5`}
+            >
+              {joined ? "Joined" : "Join"}
             </button>
-            <button onClick={() => onSpark(c.id)} className={`flex items-center gap-1.5 mono px-2 py-1 rounded-full active:scale-90 transition-transform ${sparked ? "bg-orange-500/10 text-orange-400" : "bg-zinc-900 text-zinc-400 border border-zinc-800"}`}>
-              <Flame size={13} fill={sparked ? "currentColor" : "none"} />{sparks} interested
+            <button onClick={() => setTab("chat")} className={`${btnSecondary} flex-1 py-1.5`}>
+              Message
             </button>
           </div>
-          <button onClick={() => setTab("members")} className="flex items-center gap-2.5 mt-4">
-            <div className="flex -space-x-2.5">
-              {faceStack.map((m, i) => (
-                <div key={m.userId || i} className="ring-2 ring-zinc-950 rounded-full">
-                  <Avatar label={m.name[0]} size={30} color={cat.color} />
-                </div>
-              ))}
-              {extraCount > 0 && (
-                <div className="ring-2 ring-zinc-950 rounded-full bg-zinc-800 w-[30px] h-[30px] flex items-center justify-center">
-                  <span className="text-[9px] font-semibold text-zinc-300">+{extraCount}</span>
-                </div>
-              )}
-            </div>
-            <span className="text-xs text-zinc-500"><span className="text-zinc-300 font-medium mono">{total}</span> members</span>
-          </button>
-          {matchedMembers.length > 0 && (
-            <div className="mt-3 flex items-center gap-2 bg-violet-500/5 border border-violet-500/20 rounded-xl px-3 py-2">
-              <Avatar label={matchedMembers[0].name[0]} size={26} />
-              <p className="text-[11px] text-violet-300 leading-snug">
-                <span className="font-semibold">{matchedMembers[0].name}</span> shares your interest in {matchedMembers[0].overlap.join(", ")}
-                {matchedMembers.length > 1 && <> · +{matchedMembers.length - 1} more here</>}
-              </p>
-            </div>
+
+          {faceStack.length > 0 && (
+            <button onClick={() => setTab("members")} className="flex items-center gap-2 mt-4">
+              <div className="flex -space-x-2">
+                {faceStack.map((m, i) => (
+                  <div key={m.userId || i} className="ring-2 ring-canvas rounded-full">
+                    <Avatar label={m.name[0]} size={22} color={cat.color} />
+                  </div>
+                ))}
+              </div>
+              <span className="text-[13px] text-fg-subtle truncate">
+                Joined by {faceStack[0].name}
+                {extraCount > 0 && ` and ${compactCount(extraCount)} others`}
+              </span>
+            </button>
           )}
-          <div className="flex gap-1.5 mt-5">
-            <button onClick={() => setTab("posts")} className={`flex-1 text-xs font-medium py-2 rounded-xl border ${tab === "posts" ? "bg-zinc-50 text-zinc-900 border-zinc-50" : "bg-zinc-900 text-zinc-400 border-zinc-800"}`}>Posts</button>
-            <button onClick={() => setTab("chat")} className={`flex-1 text-xs font-medium py-2 rounded-xl border ${tab === "chat" ? "bg-zinc-50 text-zinc-900 border-zinc-50" : "bg-zinc-900 text-zinc-400 border-zinc-800"}`}>Chat</button>
-            <button onClick={() => setTab("members")} className={`flex-1 text-xs font-medium py-2 rounded-xl border ${tab === "members" ? "bg-zinc-50 text-zinc-900 border-zinc-50" : "bg-zinc-900 text-zinc-400 border-zinc-800"}`}>Members · {total}</button>
-          </div>
+
+          {matchedMembers.length > 0 && (
+            <p className="text-[13px] text-fg-subtle mt-2 leading-snug">
+              <span className="text-fg font-semibold">{matchedMembers[0].name}</span> shares your
+              interest in {matchedMembers[0].overlap.join(", ")}
+              {matchedMembers.length > 1 && ` · +${matchedMembers.length - 1} more here`}
+            </p>
+          )}
         </div>
+
+        <div className="flex border-t border-line mt-5 px-4">
+          <button onClick={() => setTab("posts")} className={tabClass(tab === "posts")}>
+            Posts
+          </button>
+          <button onClick={() => setTab("chat")} className={tabClass(tab === "chat")}>
+            Chat
+          </button>
+          <button onClick={() => setTab("members")} className={tabClass(tab === "members")}>
+            Members
+          </button>
+        </div>
+
         {tab === "chat" && (
-          <div className="flex flex-col h-[420px]">
-            {(() => {
-              const pinnedMessage = chatMessages.find((m) => m.pinned);
-              if (!pinnedMessage) return null;
-              return (
-                <div className={`flex items-start gap-2 mx-5 mt-3 px-3 py-2 rounded-xl ${cm.tint} border border-zinc-800/60`}>
-                  <Pin size={12} className={`${cm.text} mt-0.5 shrink-0`} />
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-[10px] ${cm.text} font-semibold`}>Pinned · {pinnedMessage.who}</p>
-                    <p className="text-xs text-zinc-300 truncate">{pinnedMessage.text}</p>
-                  </div>
-                  {isAdmin && (
-                    <button onClick={() => togglePinMessage(pinnedMessage)} className="text-[10px] text-zinc-500 hover:text-rose-400 shrink-0">Unpin</button>
-                  )}
+          <div className="flex flex-col h-[55vh] min-h-[320px]">
+            {pinnedMessage && (
+              <div className="flex items-start gap-2 px-4 py-2.5 border-b border-line bg-surface-2">
+                <Pin size={12} className="text-fg-subtle mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] text-fg-subtle font-semibold">
+                    Pinned · {pinnedMessage.who}
+                  </p>
+                  <p className="text-[13px] text-fg truncate">{pinnedMessage.text}</p>
                 </div>
-              );
-            })()}
-            <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-3 space-y-2.5">
-              {!joined && (
-                <p className="text-xs text-zinc-500 text-center py-6">Join this {c.official ? "club" : "community"} to send messages — you can still read along.</p>
-              )}
-              {chatMessages.map((m) => (
-                <div key={m.id} className="flex gap-2.5 group">
-                  <Avatar label={m.who[0]} size={30} color={cat.color} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-zinc-300"><span className="font-medium text-zinc-100">{m.who}</span></p>
-                    {m.text && <p className="text-sm text-zinc-300">{m.text}</p>}
-                    {m.imageUrl && (
-                      <img src={m.imageUrl} alt="" className="mt-1 max-h-32 max-w-[160px] rounded-lg object-contain border border-zinc-800 bg-zinc-900" />
-                    )}
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <p className="text-[11px] text-zinc-500 mono">{m.time}</p>
-                      {isAdmin && (
-                        <button onClick={() => togglePinMessage(m)} className="text-[11px] text-zinc-600 hover:text-violet-400 flex items-center gap-0.5">
-                          <Pin size={10} />{m.pinned ? "Unpin" : "Pin"}
-                        </button>
-                      )}
-                      {(m.authorId === authUserId || isAdmin) && (
-                        <button onClick={() => deleteMessage(m)} className="text-[11px] text-zinc-600 hover:text-rose-400 flex items-center gap-0.5">
-                          <Trash2 size={10} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {stickerPickerOpen && (
-              <div className="border-t border-zinc-900 px-5 py-3">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">Stickers</p>
-                  <label className="text-[11px] text-violet-400 font-medium flex items-center gap-1 cursor-pointer">
-                    {uploadingSticker ? <Loader2 size={11} className="animate-spin" /> : <Camera size={11} />}
-                    Add one
-                    <input type="file" accept="image/*" className="hidden" disabled={uploadingSticker} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadSticker(f); }} />
-                  </label>
-                </div>
-                {!stickersLoaded ? (
-                  <p className="text-xs text-zinc-600 py-3 text-center">Loading...</p>
-                ) : stickers.length === 0 ? (
-                  <p className="text-xs text-zinc-600 py-3 text-center">No stickers yet — add the first one.</p>
-                ) : (
-                  <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                    {stickers.map((s) => (
-                      <button key={s.id} onClick={() => sendSticker(s)} className="w-14 h-14 rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 active:scale-90 transition-transform">
-                        <img src={s.image_url} alt="" className="w-full h-full object-contain" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-            {joined && (
-              <div className="flex items-center gap-2 px-5 py-3 border-t border-zinc-900">
-                <button
-                  onClick={() => { setStickerPickerOpen((v) => !v); if (!stickersLoaded) loadStickers(); }}
-                  className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${stickerPickerOpen ? "bg-violet-500/15 text-violet-400" : "text-zinc-500 hover:bg-zinc-900"}`}
-                >
-                  <Sticker size={17} />
-                </button>
-                <input
-                  value={chatDraft} onChange={(e) => setChatDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Enter" || !chatDraft.trim()) return;
-                    sendChat();
-                  }}
-                  placeholder="Message the group"
-                  maxLength={1000}
-                  className="flex-1 bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 rounded-full px-4 py-2 text-sm outline-none focus:border-violet-500"
-                />
-                <button
-                  onClick={sendChat}
-                  className="w-9 h-9 rounded-full bg-violet-500 text-white flex items-center justify-center shrink-0"
-                >
-                  <Send size={15} />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-        {tab === "posts" && (
-          <div className="px-5 pt-4 pb-6">
-            {joined && (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 mb-4">
-                <div className="flex items-center gap-1.5 mb-2">
-                  {["👍", "🔥", "😂", "🙌", "❤️"].map((emoji) => (
-                    <button key={emoji} onClick={() => handlePost(emoji)} className="w-8 h-8 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-center text-sm active:scale-90 transition-transform">
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  value={draft} onChange={(e) => setDraft(e.target.value)}
-                  placeholder="Share something with the community..."
-                  rows={2}
-                  maxLength={2000}
-                  className="w-full bg-transparent text-zinc-100 placeholder-zinc-600 text-sm outline-none resize-none"
-                />
-                {postImagePreview && (
-                  <div className="relative mt-1.5 mb-1 w-fit">
-                    <img src={postImagePreview} alt="" className="h-24 rounded-lg border border-zinc-800 object-cover" />
-                    <button onClick={() => { setPostImageFile(null); setPostImagePreview(null); }} className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-zinc-950 border border-zinc-700 flex items-center justify-center">
-                      <X size={11} className="text-zinc-400" />
-                    </button>
-                  </div>
-                )}
-                <div className="flex items-center justify-between mt-1.5">
-                  <label className={`w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer ${postImagePreview ? "bg-violet-500/15 text-violet-400" : "text-zinc-500 hover:bg-zinc-800"}`}>
-                    <Camera size={16} />
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      setPostImageFile(file);
-                      setPostImagePreview(URL.createObjectURL(file));
-                    }} />
-                  </label>
-                  <button disabled={!draft.trim() || postingImage} onClick={() => handlePost()} className="px-4 py-1.5 rounded-lg bg-violet-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 text-xs font-semibold flex items-center gap-1.5">
-                    {postingImage && <Loader2 size={12} className="animate-spin" />}
-                    {postingImage ? "Posting..." : "Post"}
+                {isAdmin && (
+                  <button
+                    onClick={() => togglePinMessage(pinnedMessage)}
+                    className="text-[11px] text-accent font-semibold shrink-0"
+                  >
+                    Unpin
                   </button>
-                </div>
+                )}
               </div>
             )}
-            <div className="space-y-4">
-              {orderedPosts.map((p) => {
-                const isPinned = p.pinned;
-                const postSparked = postSparkIds.includes(p.id);
+
+            <div
+              ref={chatScrollRef}
+              className="flex-1 overflow-y-auto no-scrollbar px-4 py-3 space-y-3"
+            >
+              {!authUserId ? (
+                <p className="text-[13px] text-fg-muted text-center py-6">
+                  Chat is only visible to verified students.
+                </p>
+              ) : !joined ? (
+                <p className="text-[13px] text-fg-muted text-center py-6">
+                  Join this {kind} to send messages — you can still read along.
+                </p>
+              ) : null}
+              {chatMessages.map((m) => {
+                const mine = m.authorId === authUserId;
                 return (
-                  <div key={p.id} className={`flex gap-2.5 ${isPinned ? `${cm.tint} border border-zinc-800/60 -mx-2 px-3 py-2.5 rounded-xl` : ""}`}>
-                    <Avatar label={p.who[0]} size={32} color={cat.color} ring={p.authorId === c.creatorId} />
-                    <div className="flex-1 min-w-0">
-                      {isPinned && <p className={`text-[10px] ${cm.text} font-semibold flex items-center gap-1 mb-0.5`}><Pin size={10} />Pinned</p>}
-                      <p className="text-sm text-zinc-300"><span className="font-medium text-zinc-100">{p.who}</span> {p.text}</p>
-                      {p.imageUrl ? (
-                        <img src={p.imageUrl} alt="" className="mt-1.5 max-h-60 w-full max-w-[220px] rounded-xl object-cover border border-zinc-800" />
-                      ) : p.hasImage ? (
-                        <div className="mt-1.5 h-24 w-full max-w-[220px] rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
-                          <ImageIcon size={18} className="text-zinc-700" />
-                        </div>
-                      ) : null}
-                      <div className="flex items-center gap-3 mt-1.5">
-                        <p className="text-[11px] text-zinc-500 mono">{p.time}</p>
-                        <button onClick={() => togglePostSpark(p.id)} className={`flex items-center gap-1 text-[11px] mono active:scale-90 transition-transform ${postSparked ? "text-orange-400" : "text-zinc-500 hover:text-orange-400"}`}>
-                          <Flame size={11} fill={postSparked ? "currentColor" : "none"} />{p.sparks || 0}
-                        </button>
+                  <div key={m.id} className={`flex gap-2 ${mine ? "flex-row-reverse" : ""}`}>
+                    {!mine && <Avatar label={m.who[0]} size={28} color={cat.color} />}
+                    <div className={`max-w-[75%] min-w-0 flex flex-col ${mine ? "items-end" : ""}`}>
+                      {!mine && <p className="text-[11px] text-fg-subtle mb-0.5 px-1">{m.who}</p>}
+                      {m.text && (
+                        <p
+                          className={`text-sm px-3 py-2 rounded-2xl leading-snug break-words ${
+                            mine ? "bg-accent text-accent-fg" : "bg-surface-3 text-fg"
+                          }`}
+                        >
+                          {m.text}
+                        </p>
+                      )}
+                      {m.imageUrl && (
+                        <img
+                          src={m.imageUrl}
+                          alt=""
+                          loading="lazy"
+                          className="mt-1 max-h-32 max-w-[160px] rounded-xl object-contain"
+                        />
+                      )}
+                      <div className="flex items-center gap-2 mt-0.5 px-1">
+                        <p className="text-[11px] text-fg-subtle mono">{m.time}</p>
                         {isAdmin && (
-                          <button onClick={() => togglePin(p)} className="text-[11px] text-zinc-500 hover:text-violet-400 flex items-center gap-0.5">
-                            <Pin size={11} />{isPinned ? "Unpin" : "Pin"}
+                          <button
+                            onClick={() => togglePinMessage(m)}
+                            className="text-[11px] text-fg-subtle active:opacity-50"
+                          >
+                            {m.pinned ? "Unpin" : "Pin"}
                           </button>
                         )}
-                        {(p.authorId === authUserId || isAdmin) && (
-                          <button onClick={() => deletePost(p)} className="text-[11px] text-zinc-500 hover:text-rose-400 flex items-center gap-0.5">
+                        {(mine || isAdmin) && (
+                          <button
+                            onClick={() => deleteMessage(m)}
+                            aria-label="Delete message"
+                            className="text-fg-subtle active:opacity-50"
+                          >
                             <Trash2 size={11} />
                           </button>
                         )}
@@ -732,74 +847,335 @@ export function CommunityDetail({ c, joined, onJoinToggle, onClose, onReport, ve
                 );
               })}
             </div>
+
+            {stickerPickerOpen && (
+              <div className="border-t border-line px-4 py-3">
+                <div className="flex items-center justify-between mb-2.5">
+                  <p className="text-[11px] font-semibold text-fg-subtle uppercase tracking-wide">
+                    Stickers
+                  </p>
+                  <label className="text-[13px] text-accent font-semibold flex items-center gap-1 cursor-pointer">
+                    {uploadingSticker ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Camera size={12} />
+                    )}
+                    Add one
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingSticker}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) uploadSticker(f);
+                      }}
+                    />
+                  </label>
+                </div>
+                {!stickersLoaded ? (
+                  <p className="text-[13px] text-fg-subtle py-3 text-center">Loading…</p>
+                ) : stickers.length === 0 ? (
+                  <p className="text-[13px] text-fg-subtle py-3 text-center">
+                    No stickers yet — add the first one.
+                  </p>
+                ) : (
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                    {stickers.map((st) => (
+                      <button
+                        key={st.id}
+                        onClick={() => sendSticker(st)}
+                        className="w-14 h-14 rounded-xl bg-surface-2 overflow-hidden shrink-0 active:scale-90 transition-transform"
+                      >
+                        <img
+                          src={st.image_url}
+                          alt=""
+                          loading="lazy"
+                          className="w-full h-full object-contain"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {joined && (
+              <div className="flex items-center gap-2 px-4 py-3 border-t border-line">
+                <button
+                  onClick={() => {
+                    setStickerPickerOpen((v) => !v);
+                    if (!stickersLoaded) loadStickers();
+                  }}
+                  aria-label="Stickers"
+                  className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                    stickerPickerOpen ? "text-accent" : "text-fg-muted"
+                  }`}
+                >
+                  <Sticker size={20} strokeWidth={1.9} />
+                </button>
+                <input
+                  value={chatDraft}
+                  onChange={(e) => setChatDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") sendChat();
+                  }}
+                  placeholder="Message…"
+                  maxLength={1000}
+                  className="flex-1 min-w-0 bg-transparent border border-line text-fg placeholder-fg-subtle rounded-full px-4 py-2 text-sm outline-none focus:border-line-strong transition-colors"
+                />
+                <button
+                  onClick={sendChat}
+                  disabled={!chatDraft.trim()}
+                  className="text-sm font-semibold text-accent disabled:opacity-40 shrink-0 px-1"
+                >
+                  Send
+                </button>
+              </div>
+            )}
           </div>
         )}
+
+        {tab === "posts" && (
+          <div className="pt-3">
+            {joined && (
+              <div className="px-4 pb-4 border-b border-line">
+                <textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder="Share something with the community…"
+                  rows={2}
+                  maxLength={2000}
+                  className="w-full bg-transparent text-fg placeholder-fg-subtle text-sm outline-none resize-none"
+                />
+                {postImagePreview && (
+                  <div className="relative mt-2 mb-1 w-fit">
+                    <img src={postImagePreview} alt="" className="h-24 rounded-lg object-cover" />
+                    <button
+                      onClick={() => {
+                        setPostImageFile(null);
+                        setPostImagePreview(null);
+                      }}
+                      aria-label="Remove image"
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-fg text-canvas flex items-center justify-center"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                )}
+                <div className="flex items-center justify-between mt-1">
+                  <label className="w-9 h-9 flex items-center justify-center cursor-pointer text-fg-muted">
+                    <Camera size={20} strokeWidth={1.9} />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setPostImageFile(file);
+                        setPostImagePreview(URL.createObjectURL(file));
+                      }}
+                    />
+                  </label>
+                  <button
+                    disabled={(!draft.trim() && !postImageFile) || postingImage}
+                    onClick={() => handlePost()}
+                    className="text-sm font-semibold text-accent disabled:opacity-40 flex items-center gap-1.5 px-1"
+                  >
+                    {postingImage && <Loader2 size={12} className="animate-spin" />}
+                    {postingImage ? "Posting…" : "Post"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!authUserId ? (
+              <p className="text-[13px] text-fg-muted text-center py-10 leading-relaxed">
+                Posts are only visible to verified students.
+                <br />
+                Verify your account to read along.
+              </p>
+            ) : orderedPosts.length === 0 ? (
+              <p className="text-[13px] text-fg-muted text-center py-10">
+                No posts yet{joined ? " — start the conversation." : "."}
+              </p>
+            ) : null}
+
+            {orderedPosts.map((p) => {
+              const postSparked = postSparkIds.includes(p.id);
+              return (
+                <article key={p.id} className="border-b border-line py-3">
+                  {p.pinned && (
+                    <p className="text-[11px] text-fg-subtle font-semibold flex items-center gap-1 px-4 pb-1.5">
+                      <Pin size={10} />
+                      Pinned
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2.5 px-4">
+                    <Avatar
+                      label={p.who[0]}
+                      size={32}
+                      color={cat.color}
+                      ring={p.authorId === c.creatorId}
+                    />
+                    <p className="text-sm font-semibold text-fg flex-1 min-w-0 truncate">{p.who}</p>
+                    <p className="text-[13px] text-fg-subtle mono shrink-0">{p.time}</p>
+                  </div>
+
+                  {p.text && <p className="text-sm text-fg px-4 mt-2 leading-relaxed">{p.text}</p>}
+                  {p.imageUrl && (
+                    <img
+                      src={p.imageUrl}
+                      alt=""
+                      loading="lazy"
+                      className="w-full max-h-80 object-cover mt-2"
+                    />
+                  )}
+
+                  <div className="flex items-center gap-4 px-4 mt-2.5">
+                    <button
+                      onClick={() => togglePostSpark(p.id)}
+                      aria-label={postSparked ? "Remove like" : "Like"}
+                      className="flex items-center gap-1.5 active:opacity-50 transition-opacity"
+                    >
+                      <Heart
+                        size={20}
+                        strokeWidth={1.9}
+                        className={postSparked ? "text-rose-500" : "text-fg"}
+                        fill={postSparked ? "currentColor" : "none"}
+                      />
+                      <span className="text-[13px] font-semibold text-fg mono">{p.sparks || 0}</span>
+                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => togglePin(p)}
+                        className="text-[13px] text-fg-subtle active:opacity-50"
+                      >
+                        {p.pinned ? "Unpin" : "Pin"}
+                      </button>
+                    )}
+                    {(p.authorId === authUserId || isAdmin) && (
+                      <button
+                        onClick={() => deletePost(p)}
+                        aria-label="Delete post"
+                        className="text-fg-subtle active:opacity-50 ml-auto"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+
         {tab === "members" && (
-          <div className="px-5 pt-4 pb-6">
+          <div className="pt-3">
             {!memberQuery && recentlyJoined.length > 0 && (
-              <div className="mb-4">
-                <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                  Recently joined
-                </p>
-                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+              <div className="pb-3 border-b border-line">
+                <p className="text-sm font-semibold text-fg px-4 mb-3">Recently joined</p>
+                <div className="flex gap-4 overflow-x-auto no-scrollbar px-4">
                   {recentlyJoined.map((m) => (
-                    <div key={m.userId} className="flex flex-col items-center gap-1 w-14 shrink-0">
-                      <Avatar label={m.name[0]} size={40} color={cat.color} />
-                      <p className="text-[10px] text-zinc-400 truncate w-full text-center">{m.name}</p>
+                    <div key={m.userId} className="flex flex-col items-center gap-1.5 w-16 shrink-0">
+                      <Avatar label={m.name[0]} size={56} color={cat.color} />
+                      <p className="text-[11px] text-fg truncate w-full text-center">{m.name}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 mb-4">
-              <Search size={14} className="text-zinc-500 shrink-0" />
-              <input value={memberQuery} onChange={(e) => setMemberQuery(e.target.value)} placeholder="Search members" className="flex-1 bg-transparent text-zinc-100 placeholder-zinc-600 text-sm outline-none" />
+
+            <div className="px-4 py-3">
+              <div className="flex items-center gap-2 bg-surface-3 rounded-lg px-3 py-2">
+                <Search size={16} className="text-fg-subtle shrink-0" />
+                <input
+                  value={memberQuery}
+                  onChange={(e) => setMemberQuery(e.target.value)}
+                  placeholder="Search members"
+                  className="flex-1 min-w-0 bg-transparent text-fg placeholder-fg-subtle text-sm outline-none"
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              {filteredMembers.map((m) => {
-                const overlap = interests ? (m.interests || []).filter((s) => interests.includes(s)) : [];
-                return (
-                  <div key={m.userId} className="flex items-center gap-3 py-2">
-                    <Avatar label={m.name[0]} size={36} color={cat.color} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-zinc-200 truncate">{m.name}</p>
-                      <p className="text-[11px] text-zinc-500 flex items-center gap-1">
-                        {m.role === "Creator" && <Crown size={10} className="text-amber-400" />}{m.role}
-                        {overlap.length > 0 && <span className="text-violet-400">· shares {overlap.join(", ")}</span>}
-                      </p>
-                    </div>
-                    {isAdmin && m.role !== "Creator" && (
-                      <button onClick={() => removeMember(m)} className="text-[11px] text-zinc-500 hover:text-rose-400 shrink-0">Remove</button>
-                    )}
+
+            {filteredMembers.map((m) => {
+              const overlap = interests
+                ? (m.interests || []).filter((x) => interests.includes(x))
+                : [];
+              return (
+                <div key={m.userId} className="flex items-center gap-3 px-4 py-2">
+                  <Avatar label={m.name[0]} size={44} color={cat.color} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-fg truncate">{m.name}</p>
+                    <p className="text-[13px] text-fg-subtle flex items-center gap-1 truncate">
+                      {m.role === "Creator" && <Crown size={11} className="shrink-0" />}
+                      {m.role}
+                      {overlap.length > 0 && ` · shares ${overlap.join(", ")}`}
+                    </p>
                   </div>
-                );
-              })}
-              {filteredMembers.length === 0 && <p className="text-sm text-zinc-500 text-center py-8">No members match "{memberQuery}".</p>}
-            </div>
+                  {isAdmin && m.role !== "Creator" && (
+                    <button
+                      onClick={() => removeMember(m)}
+                      className={`${btnSecondary} shrink-0 text-[13px]`}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {filteredMembers.length === 0 && (
+              <p className="text-[13px] text-fg-muted text-center py-8">
+                {!authUserId
+                  ? "The member list is only visible to verified students."
+                  : memberQuery
+                    ? `No members match "${memberQuery}".`
+                    : "No members yet."}
+              </p>
+            )}
           </div>
         )}
+      </div>
+
       {settingsOpen && (
         <CommunitySettings
           c={c}
           onClose={() => setSettingsOpen(false)}
-          onSave={(updates) => { onUpdate(c.id, updates); setSettingsOpen(false); }}
+          onSave={(updates) => {
+            onUpdate(c.id, updates);
+            setSettingsOpen(false);
+          }}
           onDelete={() => onDelete(c.id)}
         />
       )}
+
       {qrOpen && (
-        <div className="absolute inset-0 bg-black/60 z-[60] flex items-center justify-center px-6" onClick={() => setQrOpen(false)}>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-xs p-6 text-center" onClick={(e) => e.stopPropagation()}>
-            <p className="font-semibold text-zinc-100 mb-1">{c.name}</p>
-            <p className="text-xs text-zinc-500 mb-4">@{handle}</p>
+        <div
+          className="absolute inset-0 bg-black/50 dark:bg-black/75 z-[60] flex items-center justify-center px-8 animate-fade-in"
+          onClick={() => setQrOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="animate-rise-in bg-surface border border-line rounded-2xl w-full max-w-xs p-6 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-semibold text-fg mb-1">{c.name}</p>
+            <p className="text-[13px] text-fg-subtle mb-5 mono">@{handle}</p>
             <div className="bg-white rounded-xl p-4 inline-block">
-              <QRCodeSVG value={`https://orbit.app/${c.official ? "club" : "c"}/${handle}`} size={180} />
+              <QRCodeSVG
+                value={`https://orbit.app/${c.official ? "club" : "c"}/${handle}`}
+                size={180}
+              />
             </div>
-            <p className="text-[11px] text-zinc-500 mt-4">Scan to open this {c.official ? "club" : "community"} on Orbit</p>
-            <button onClick={() => setQrOpen(false)} className="w-full mt-4 py-2 rounded-xl bg-zinc-800 text-zinc-200 text-sm font-medium">Close</button>
+            <p className="text-[13px] text-fg-muted mt-5">Scan to open this {kind} on Orbit</p>
+            <button onClick={() => setQrOpen(false)} className={`${btnSecondary} w-full mt-4 py-2`}>
+              Close
+            </button>
           </div>
         </div>
       )}
-      </div>
     </div>
   );
 }

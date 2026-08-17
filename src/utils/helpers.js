@@ -1,28 +1,13 @@
-// Core id generator — kept in one place since both seed data and
-// runtime-created communities/posts/chats need a shared counter.
 let SEED_ID = 1;
 export const nextId = () => String(SEED_ID++);
-
-export const NAME_POOL = [
-  "Aarav", "Meher", "Priyanshu", "Simran", "Kabir", "Rehan", "Ishita", "Devika",
-  "Yashwin", "Naina", "Aisha", "Rohan", "Tanvi", "Vihaan", "Ananya", "Kunal",
-  "Diya", "Arjun", "Sneha", "Rudra", "Zara", "Krish", "Myra", "Advait",
-];
 
 export const communityTags = (c) => (c.tags && c.tags.length ? c.tags : [c.category]);
 
 export const interestMatchCount = (c, interests) =>
-  interests && interests.length ? communityTags(c).filter((t) => interests.includes(t)).length : 0;
+  interests && interests.length
+    ? communityTags(c).filter((t) => interests.includes(t)).length
+    : 0;
 
-export const baseSparks = (c) => Math.max(2, Math.round(c.members * 0.55));
-
-export function communityTrendScore(c) {
-  return c.members * 0.4 + baseSparks(c) * 2 - c.lastActive * 0.6;
-}
-
-// Turns a display name into a URL-safe slug — shared by handleFor() below
-// and by App.jsx when it needs to generate a @handle client-side before a
-// community row (and its DB-assigned id) exists yet.
 export function slugify(name) {
   return name
     .toLowerCase()
@@ -31,20 +16,8 @@ export function slugify(name) {
     .replace(/^-+|-+$/g, "");
 }
 
-// Turns a display name into a unique-ish @handle for community/club pages
-// and their QR codes — e.g. "DSA Grinders — 6AM Batch" -> "dsa-grinders-6am-batch".
 export function handleFor(name, id) {
   return `${slugify(name)}-${id}`;
-}
-
-// Stable numeric hash for a string id — Supabase rows use uuid string ids,
-// so anything that used to do `id % N` (fine for the old numeric mock ids)
-// needs this instead, or it silently produces NaN.
-export function hashId(id) {
-  const s = String(id);
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
 }
 
 // Locali-Tea: every post self-destructs 48h after posting, comments included.
@@ -63,14 +36,20 @@ export function teaTimeLeft(createdAt) {
   return `${m}m left`;
 }
 
-export function genMembers(c) {
-  const total = Math.max(1, c.members);
-  const idNum = hashId(c.id);
-  const creatorName = c.creator === "You" ? "You" : NAME_POOL[idNum % NAME_POOL.length];
-  const others = [];
-  for (let i = 0; i < Math.min(total - 1, 24); i++) {
-    const base = NAME_POOL[(idNum + i * 3) % NAME_POOL.length];
-    others.push(i >= NAME_POOL.length ? `${base} ${i}` : base);
-  }
-  return { creatorName, others, total };
+export function compactCount(n) {
+  const v = Number(n) || 0;
+  if (v < 1000) return String(v);
+  if (v < 10000) return `${(v / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  if (v < 1000000) return `${Math.round(v / 1000)}k`;
+  return `${(v / 1000000).toFixed(1).replace(/\.0$/, "")}m`;
+}
+
+// Raw filenames break the resulting public storage URL.
+export function safeFileName(name) {
+  const raw = String(name || "file");
+  const dot = raw.lastIndexOf(".");
+  const stem = dot > 0 ? raw.slice(0, dot) : raw;
+  const ext = dot > 0 ? raw.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, "") : "";
+  const cleanStem = stem.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "file";
+  return ext ? `${cleanStem}.${ext}` : cleanStem;
 }

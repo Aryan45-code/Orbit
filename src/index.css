@@ -2,27 +2,107 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------------------------
+   Theme tokens, tuned to Instagram's palette.
+
+   Instagram is near-monochrome: true black or true white ground,
+   hairline dividers, grey secondary text, and exactly one saturated
+   colour (#0095F6 blue) reserved for actions — follow buttons, links,
+   the active tab. Colour is never chrome.
+
+   No purple anywhere in the system palette.
+
+   Every value is a bare "r g b" triple so Tailwind's
+   rgb(var(--x) / <alpha-value>) form keeps opacity modifiers working.
+   --------------------------------------------------------------- */
+:root {
+  --canvas: 255 255 255;        /* #ffffff */
+  --surface: 255 255 255;       /* cards sit flush on the ground, IG-style */
+  --surface-2: 250 250 250;     /* #fafafa — IG's input / chip fill */
+  --surface-3: 239 239 239;     /* #efefef — IG's secondary button fill */
+  --line: 219 219 219;          /* #dbdbdb — IG's hairline */
+  --line-strong: 168 168 168;   /* #a8a8a8 */
+  --fg: 0 0 0;
+  --fg-muted: 115 115 115;      /* #737373 — IG secondary text */
+  --fg-subtle: 168 168 168;     /* #a8a8a8 — IG tertiary text */
+  --accent: 0 149 246;          /* #0095f6 — IG blue */
+  --accent-fg: 255 255 255;
+  --inverse: 0 0 0;
+  --inverse-fg: 255 255 255;
+}
+
+.dark {
+  --canvas: 0 0 0;              /* IG dark is true black, not near-black */
+  --surface: 0 0 0;
+  --surface-2: 28 28 28;        /* #1c1c1c */
+  --surface-3: 38 38 38;        /* #262626 — IG's dark divider / fill */
+  --line: 38 38 38;             /* #262626 */
+  --line-strong: 84 84 84;      /* #545454 */
+  --fg: 245 245 245;            /* #f5f5f5 */
+  --fg-muted: 168 168 168;      /* #a8a8a8 */
+  --fg-subtle: 115 115 115;     /* #737373 */
+  --accent: 0 149 246;          /* same blue in both themes, as IG does */
+  --accent-fg: 255 255 255;
+  --inverse: 255 255 255;
+  --inverse-fg: 0 0 0;
+}
+
+html {
+  background-color: rgb(var(--canvas));
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background-color: rgb(var(--canvas));
+  color: rgb(var(--fg));
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
 @layer utilities {
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  .mono {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Frosted chrome for the floating tab bar and toasts. */
   .glass {
-    background: rgba(24, 24, 27, 0.55);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    background: rgb(var(--canvas) / 0.82);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
   }
   .skeleton-shimmer {
     background-image: linear-gradient(
       90deg,
-      rgba(255, 255, 255, 0.04) 25%,
-      rgba(255, 255, 255, 0.1) 37%,
-      rgba(255, 255, 255, 0.04) 63%
+      rgb(var(--fg) / 0.04) 25%,
+      rgb(var(--fg) / 0.09) 37%,
+      rgb(var(--fg) / 0.04) 63%
     );
     background-size: 400% 100%;
   }
-  .stagger-1 { animation-delay: 40ms; }
-  .stagger-2 { animation-delay: 90ms; }
-  .stagger-3 { animation-delay: 140ms; }
-  .stagger-4 { animation-delay: 190ms; }
-  .stagger-5 { animation-delay: 240ms; }
-  .stagger-6 { animation-delay: 290ms; }
-  .stagger-7 { animation-delay: 340ms; }
-  .stagger-8 { animation-delay: 390ms; }
+  /* IG's story ring: a warm orange-to-red gradient. Deliberately no purple —
+     the real one runs through magenta, this stops at pink. */
+  .story-ring {
+    background: linear-gradient(45deg, #f9ce34, #ee2a7b, #e6683c);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

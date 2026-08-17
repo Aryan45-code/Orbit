@@ -1,59 +1,83 @@
 import { useState, useMemo } from "react";
 import { ArrowLeft, Search, X } from "lucide-react";
-import { CATEGORIES, COLOR_MAP } from "../data/constants.js";
 import { EmptyState } from "./EmptyState.jsx";
+import { CommunityMark } from "./Home.jsx";
+import { compactCount } from "../utils/helpers.js";
 
 export function SearchOverlay({ communities, onOpen, onClose }) {
   const [q, setQ] = useState("");
+
   const results = useMemo(() => {
     const query = q.trim().toLowerCase();
     if (!query) return [];
-    return communities.filter((c) =>
-      c.name.toLowerCase().includes(query) || c.category.toLowerCase().includes(query)
-    ).slice(0, 30);
+    return communities
+      .filter(
+        (c) => c.name.toLowerCase().includes(query) || c.category.toLowerCase().includes(query)
+      )
+      .slice(0, 30);
   }, [q, communities]);
+
   return (
-    <div className="relative flex-1 bg-zinc-950 flex flex-col min-h-0">
-      <div className="relative z-10 flex flex-col min-h-0 flex-1">
-      <div className="flex items-center gap-2.5 px-4 pt-4 pb-3 border-b border-zinc-900">
-        <button onClick={onClose} className="shrink-0"><ArrowLeft size={19} className="text-zinc-300" /></button>
-        <div className="flex-1 flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2">
-          <Search size={16} className="text-zinc-500 shrink-0" />
+    <div className="flex-1 bg-canvas flex flex-col min-h-0">
+      <div
+        className="flex items-center gap-3 px-4 pb-3 border-b border-line shrink-0"
+        style={{ paddingTop: "max(0.875rem, env(safe-area-inset-top))" }}
+      >
+        <button onClick={onClose} aria-label="Back" className="shrink-0 text-fg active:opacity-50">
+          <ArrowLeft size={22} strokeWidth={1.9} />
+        </button>
+        <div className="flex-1 flex items-center gap-2 bg-surface-3 rounded-lg px-3 py-2">
+          <Search size={16} className="text-fg-subtle shrink-0" />
           <input
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search communities or categories"
-            className="flex-1 bg-transparent text-zinc-100 placeholder-zinc-600 text-sm outline-none"
+            placeholder="Search"
+            className="flex-1 min-w-0 bg-transparent text-fg placeholder-fg-subtle text-sm outline-none"
           />
-          {q && <button onClick={() => setQ("")}><X size={14} className="text-zinc-500" /></button>}
+          {q && (
+            <button onClick={() => setQ("")} aria-label="Clear search">
+              <X size={15} className="text-fg-subtle" />
+            </button>
+          )}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-3">
+
+      <div className="flex-1 overflow-y-auto no-scrollbar">
         {!q && (
-          <EmptyState icon={Search} title="Search Orbit" subtitle={'Try a community name or category, like "Coding" or "Football".'} />
+          <EmptyState
+            icon={Search}
+            title="Search Orbit"
+            subtitle={'Try a community name or a category, like "Coding" or "Football".'}
+          />
         )}
         {q && results.length === 0 && (
-          <EmptyState icon={Search} title={`No matches for "${q}"`} subtitle="Try a different name or category." />
+          <EmptyState
+            icon={Search}
+            title={`No results for "${q}"`}
+            subtitle="Try a different name or category."
+          />
         )}
-        <div className="space-y-1">
-          {results.map((c, idx) => {
-            const cat = CATEGORIES.find((x) => x.name === c.category);
-            const cm = COLOR_MAP[cat.color];
-            return (
-              <button key={c.id} onClick={() => { onOpen(c); onClose(); }} className={`animate-fade-in-up stagger-${Math.min((idx % 8) + 1, 8)} w-full flex items-center gap-3 py-2.5 text-left active:scale-[0.99] transition-transform`}>
-                <div className={`${cm.tint} ${cm.text} w-11 h-11 rounded-full flex items-center justify-center shrink-0`}>
-                  <cat.icon size={18} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-zinc-100 truncate">{c.name}</p>
-                  <p className="text-xs text-zinc-500 truncate">{c.category} · {c.members} members</p>
-                </div>
-              </button>
-            );
-          })}
+        <div className="py-2">
+          {results.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => {
+                onOpen(c);
+                onClose();
+              }}
+              className="w-full flex items-center gap-3 px-4 py-2 text-left active:bg-surface-2 transition-colors"
+            >
+              <CommunityMark community={c} size={44} />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-fg truncate">{c.name}</p>
+                <p className="text-[13px] text-fg-subtle truncate">
+                  {c.category} · {compactCount(c.members)} members
+                </p>
+              </div>
+            </button>
+          ))}
         </div>
-      </div>
       </div>
     </div>
   );
